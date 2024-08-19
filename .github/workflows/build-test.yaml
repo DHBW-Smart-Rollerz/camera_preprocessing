@@ -26,11 +26,8 @@ jobs:
 
     - name: Clone Dependencies
       run: |
-        mkdir -p ~/workspace/src
-        cd ~/workspace/src
         git clone https://github.com/DHBW-Smart-Rollerz/camera_preprocessing.git
         git clone https://github.com/DHBW-Smart-Rollerz/smarty_utils.git
-        cd ..
 
     - name: Build packages
       run: |
