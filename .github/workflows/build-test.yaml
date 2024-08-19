@@ -31,9 +31,6 @@ jobs:
         git clone https://github.com/DHBW-Smart-Rollerz/camera_preprocessing.git
         git clone https://github.com/DHBW-Smart-Rollerz/smarty_utils.git
         cd ..
-        rosdep init
-        rosdep update
-        rosdep install --from-paths src --ignore-src --rosdistro jazzy -y
 
     - name: Build packages
       run: |
