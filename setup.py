@@ -5,7 +5,7 @@ from setuptools import find_packages, setup
 package_name = "camera_preprocessing"
 
 
-# ToDo: Add this to the utils package
+# ToDo: Add this to the utils package and import it here
 def package_files(directory_list):
     """
     Collect all files in the given directories.
