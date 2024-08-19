@@ -26,7 +26,6 @@ jobs:
 
     - name: Clone Dependencies
       run: |
-        git clone https://github.com/DHBW-Smart-Rollerz/camera_preprocessing.git
         git clone https://github.com/DHBW-Smart-Rollerz/smarty_utils.git
 
     - name: Build packages
