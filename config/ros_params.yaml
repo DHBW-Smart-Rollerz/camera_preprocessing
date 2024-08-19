@@ -1,0 +1,19 @@
+# Configuration for camera_preprocessing_node
+camera_preprocessing_node:
+  ros__parameters:
+    calibration_file: "config/calib.bin"
+    config_file: "config/config.yaml"
+    calibration_images_path: "img/calib/Neue_3MP_Kamera/"
+    position_calib_img_path: "img/position/chessboard.png"
+    num_skip_frames: 1
+    image_topic: "/camera/image_raw"
+    undistorted_publisher_topic: "/camera/undistorted"
+    birds_eye_publisher_topic: "/camera/birds_eye"
+
+# Configuration for camera_calibration_node
+camera_calibration_node:
+  ros__parameters:
+    calibration_file: "config/calib.bin"
+    config_file: "config/config.yaml"
+    calibration_images_path: "img/calib/Neue_3MP_Kamera/"
+    image_topic: "/camera/image_raw"
