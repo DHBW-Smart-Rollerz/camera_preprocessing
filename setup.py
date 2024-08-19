@@ -5,7 +5,17 @@ from setuptools import find_packages, setup
 package_name = "camera_preprocessing"
 
 
+# ToDo: Add this to the utils package
 def package_files(directory_list):
+    """
+    Collect all files in the given directories.
+
+    Arguments:
+        directory_list -- List of directories to search for files.
+
+    Returns:
+        List of paths to all files in the given directories
+    """
     paths = []
     for directory in directory_list:
         for path, directories, filenames in os.walk(directory):

@@ -9,6 +9,12 @@ from launch.substitutions import LaunchConfiguration
 
 
 def generate_launch_description():
+    """
+    Generate the launch description.
+
+    Returns:
+        LaunchDescription -- The launch description.
+    """
     # Declare the launch arguments
     params_file_arg = DeclareLaunchArgument(
         "params_file",

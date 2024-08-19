@@ -12,15 +12,31 @@ from camera_preprocessing.transformation.helpers import Helpers
 
 
 class Unit(enum.Enum):
+    """
+    Enumeration for the unit of the data.
+
+    Arguments:
+        enum -- Enum base class.
+    """
+
     METERS = ("m",)
     MILLIMETERS = ("mm",)
     PIXELS = "px"
 
 
 class CoordinateTransform:
+    """Class for coordinate transformations."""
+
     def __init__(
         self, *, calib: Calibration = None, debug: bool = False, **kwargs
     ) -> None:
+        """
+        Initialize the CoordinateTransform class. Please note that the manager parameter is deprecated.
+
+        Keyword Arguments:
+            calib -- Calibration object (default: {None})
+            debug -- Debug mode (default: {False})
+        """
         self.logger = get_logger("coordinate_transform_logger")
         if kwargs.get("manager", None) is not None:
             self.logger.warn(
@@ -46,16 +62,18 @@ class CoordinateTransform:
     def camera_to_world(
         self, points: np.ndarray, unit: Unit = Unit.MILLIMETERS, Z_w=0
     ) -> np.ndarray:
-        """Transforms the camera coordinates to world coordinates.
+        """
+        Transforms the camera coordinates to world coordinates.
 
-        Args:
-            points (np.ndarray): Camera coordinates [x, y].
-            unit (Unit, optional): The unit of the output data. Defaults to Unit.MILLIMETERS.
-            Z_w (float, optional): The z-coordinate of the world. Defaults to 0.
+        Arguments:
+            points -- Camera coordinates [x, y].
+
+        Keyword Arguments:
+            unit -- The unit of the output data (default: {Unit.MILLIMETERS})
+            Z_w -- The z-coordinate of the world (default: {0})
 
         Raises:
             ValueError: If no camera configuration is found.
-            ValueError: Unit is not supported.
 
         Returns:
             np.ndarray: World coordinates.
@@ -92,15 +110,17 @@ class CoordinateTransform:
     def world_to_camera(
         self, points: np.ndarray, input_unit: Unit = Unit.MILLIMETERS, **kwargs
     ) -> np.ndarray:
-        """Transforms the world coordinates to camera coordinates.
+        """
+        Transforms the world coordinates to camera coordinates.
 
-        Args:
-            points (np.ndarray): World coordinates [x, y, 0].
-            input_unit (Unit, optional): The unit of the input data. Defaults to Unit.MILLIMETERS.
+        Arguments:
+            points -- World coordinates [x, y, 0].
+
+        Keyword Arguments:
+            input_unit -- The unit of the input data (default: {Unit.MILLIMETERS})
 
         Raises:
             ValueError: If no camera configuration is found.
-            ValueError: Unit is not supported.
 
         Returns:
             np.ndarray: Camera coordinates.
@@ -130,10 +150,11 @@ class CoordinateTransform:
         return res
 
     def bird_to_camera(self, points: np.ndarray) -> np.ndarray:
-        """Transforms the bird coordinates to camera coordinates.
+        """
+        Transforms the bird coordinates to camera coordinates.
 
-        Args:
-            points (np.ndarray): Bird coordinates [x, y].
+        Arguments:
+            points -- Bird coordinates [x, y].
 
         Returns:
             np.ndarray: Camera coordinates.
@@ -150,10 +171,11 @@ class CoordinateTransform:
         return res
 
     def camera_to_bird(self, points: np.ndarray) -> np.ndarray:
-        """Transforms the camera coordinates to bird coordinates.
+        """
+        Transforms the camera coordinates to bird coordinates.
 
-        Args:
-            points (np.ndarray): Camera coordinates [x, y].
+        Arguments:
+            points -- Camera coordinates [x, y].
 
         Returns:
             np.ndarray: Bird coordinates.
@@ -172,11 +194,14 @@ class CoordinateTransform:
     def bird_to_world(
         self, points: np.ndarray, unit: Unit = Unit.MILLIMETERS
     ) -> np.ndarray:
-        """Transforms the bird coordinates to world coordinates.
+        """
+        Bird to world transformation.
 
-        Args:
-            points (np.ndarray): Bird coordinates [x, y].
-            unit (Unit, optional): The unit of the output data. Defaults to Unit.MILLIMETERS.
+        Arguments:
+            points -- Bird coordinates [x, y].
+
+        Keyword Arguments:
+            unit -- Unit of the output data (default: {Unit.MILLIMETERS})
 
         Returns:
             np.ndarray: World coordinates.
@@ -187,11 +212,14 @@ class CoordinateTransform:
     def world_to_bird(
         self, points: np.ndarray, input_unit: Unit = Unit.MILLIMETERS, **kwargs
     ) -> np.ndarray:
-        """Transforms the world coordinates to bird coordinates.
+        """
+        World to bird transformation.
 
-        Args:
-            points (np.ndarray): World coordinates [x, y, 0].
-            input_unit (Unit, optional): The unit of the input data. Defaults to Unit.MILLIMETERS.
+        Arguments:
+            points -- World coordinates [x, y, 0].
+
+        Keyword Arguments:
+            input_unit -- Unit of the input data (default: {Unit.MILLIMETERS})
 
         Returns:
             np.ndarray: Bird coordinates.

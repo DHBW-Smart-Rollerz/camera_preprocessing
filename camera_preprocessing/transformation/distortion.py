@@ -15,15 +15,22 @@ class Distortion:
     """Class for camera distortion correction."""
 
     def __init__(self, calibration: Calibration, debug=DEBUG):
+        """
+        Initialize the Distortion class.
+
+        Arguments:
+            calibration -- Calibration object.
+
+        Keyword Arguments:
+            debug -- Enable debug (default: {DEBUG})
+        """
         self.calibration = calibration
         self.logger = get_logger("distortion_logger")
         self.precompute_undistortion_map()
         self.logger.info("Distortion class initialized")
 
     def recalibrate(self):
-        """
-        Recalibrate the camera.
-        """
+        """Recalibrate the camera."""
         if not self.calibration.all_calibrated:
             self.calibration.setup()
         if self.calibration.all_calibrated:
@@ -33,7 +40,8 @@ class Distortion:
         self.precompute_undistortion_map()
 
     def undistort(self, img: np.ndarray) -> np.ndarray:
-        """Undistorts the image. Deprecated, use undistort_image instead.
+        """
+        Undistorts the image. Deprecated, use undistort_image instead.
 
         Args:
             img (np.ndarray): The image to undistort.

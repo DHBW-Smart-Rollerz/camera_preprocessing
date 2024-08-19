@@ -22,6 +22,7 @@ class CameraPreprocessing(Node):
     """CameraPreprocessing Node."""
 
     def __init__(self):
+        """Initialize the CameraPreprocessing node."""
         super().__init__("camera_preprocessing")
 
         # Get parameters from the parameter server
@@ -90,12 +91,30 @@ class CameraPreprocessing(Node):
         self.get_logger().info("CameraPreprocessing node initialized")
 
     def adjust_brightness(self, image, target_brightness=127):
+        """
+        Adjust the brightness of the given image.
+
+        Arguments:
+            image -- Image to adjust the brightness of.
+
+        Keyword Arguments:
+            target_brightness -- Target brightness value [0,255] (default: {127})
+
+        Returns:
+            Image with adjusted brightness.
+        """
         avg_brightness = np.mean(image)
         adjustment_factor = target_brightness / avg_brightness
         adjusted_image = cv2.convertScaleAbs(image, alpha=adjustment_factor, beta=0)
         return adjusted_image
 
     def on_raw_image(self, image):
+        """
+        Callback function for the raw image subscriber.
+
+        Arguments:
+            image -- Raw image from the camera.
+        """
         if self.frame_counter < self.num_skip_frames:
             self.frame_counter += 1
             return
@@ -129,15 +148,33 @@ class CameraPreprocessing(Node):
         Timer().print()
 
     def publish_image_undistorted(self, image_cv2):
+        """
+        Publish the undistorted image.
+
+        Arguments:
+            image_cv2 -- Image to publish in OpenCV format.
+        """
         image_msg = self.bridge.cv2_to_imgmsg(image_cv2, "8UC1")
         self.undistorted_image_publisher.publish(image_msg)
 
     def publish_image_birds_eye(self, image_cv2):
+        """
+        Publish the bird's eye view image.
+
+        Arguments:
+            image_cv2 -- Image to publish in OpenCV format.
+        """
         image_msg = self.bridge.cv2_to_imgmsg(image_cv2, "8UC1")
         self.birds_eye_publisher.publish(image_msg)
 
 
 def main(args=None):
+    """
+    Main function to start the CameraPreprocessing node.
+
+    Keyword Arguments:
+        args -- Launch Arguments (default: {None})
+    """
     rclpy.init(args=args)
     camera_preprocessing = CameraPreprocessing()
     try:

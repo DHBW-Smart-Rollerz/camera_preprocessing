@@ -15,7 +15,15 @@ from camera_preprocessing.transformation.calibration import Calibration
 
 
 class CameraCalibration(Node):
+    """
+    CameraCalibration Node.
+
+    Arguments:
+        Node -- The ROS node class.
+    """
+
     def __init__(self):
+        """Initialize the CameraCalibration node."""
         super().__init__("camera_calibration")
 
         # Get parameters from the parameter server
@@ -76,10 +84,11 @@ class CameraCalibration(Node):
             )
 
     def calibrate(self) -> bool:
-        """Full calibration process.
+        """
+        Calibrate the camera.
 
         Returns:
-            bool: True if calibration was successful, False otherwise.
+            bool -- True if the camera was calibrated successfully, False otherwise.
         """
         self.calibration.setup(force_recalibration=True)
 
@@ -93,10 +102,11 @@ class CameraCalibration(Node):
             return False
 
     def on_raw_image(self, image):
-        """Callback function for the raw image subscriber.
+        """
+        Callback function for the raw image subscriber.
 
-        Args:
-            image (np.ndarray): The raw image.
+        Arguments:
+            image -- The raw image message.
         """
         if self.lock:
             return
@@ -121,6 +131,12 @@ class CameraCalibration(Node):
 
 
 def main(args=None):
+    """
+    Main function to start the CameraCalibration node.
+
+    Keyword Arguments:
+        args -- Launch arguments (default: {None})
+    """
     rclpy.init(args=args)
     camera_calibration = CameraCalibration()
     try:

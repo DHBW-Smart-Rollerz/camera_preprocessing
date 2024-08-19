@@ -13,6 +13,7 @@ class BirdseyedviewTransformation:
     """Deprecated class for bird's eye view transformation."""
 
     def __init__(self, **kwargs):
+        """Initialize the BirdseyedviewTransformation class."""
         self.logger = get_logger("birdseyedview_transformation_logger")
         self.logger.warn("Deprecated class. Use Birdseye instead.")
         self.calibration = Calibration(debug=DEBUG)
@@ -38,14 +39,27 @@ class BirdseyedviewTransformation:
 
 
 class Birdseye:
+    """Class for bird's eye view transformation."""
+
     def __init__(
         self, calibration: Calibration, distortion: Distortion, debug: bool = DEBUG
     ) -> None:
+        """
+        Initialize the Birdseye class.
+
+        Arguments:
+            calibration -- Calibration object.
+            distortion -- Distortion object.
+
+        Keyword Arguments:
+            debug -- Enable debug (default: {DEBUG})
+        """
         self._distortion = distortion
         self._calibration = calibration
         self._debug = debug
 
     def recalibrate(self):
+        """Recalibrate the camera."""
         if not self.calibration.all_calibrated:
             self.calibration.setup()
         if self.calibration.all_calibrated:
@@ -55,13 +69,13 @@ class Birdseye:
 
     def transform_img(self, img):
         """
-        Transform image to birds eye view.
+        Transform the given image to birds eye view.
 
-        Args:
-            img (np.array): Image to transform.
+        Arguments:
+            img -- Image to transform.
 
         Returns:
-            np.array: Transformed image.
+            Transformed image.
         """
         target_size = self._calibration._calib_birds_eye["target_size"]
         target_size = (int(target_size[0]), int(target_size[1]))
