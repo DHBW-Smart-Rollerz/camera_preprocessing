@@ -1,4 +1,4 @@
-name: Test ROS 2 Jazzy Packages
+name: Build Test
 
 on:
   push:
