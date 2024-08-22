@@ -9,34 +9,9 @@ on:
       - jazzy*
 
 jobs:
-  build-and-test:
-    runs-on: ubuntu-24.04
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Setup ROS 2 Jazzy
-      uses: ros-tooling/setup-ros@v0.7
-      with:
-        required-ros-distributions: jazzy
-
-    - name: Install dependencies
-      run: sudo apt-get update && sudo apt-get install -y python3-colcon-common-extensions
-
-    - name: Clone Dependencies
-      run: |
-        git clone https://github.com/DHBW-Smart-Rollerz/smarty_utils.git
-
-    - name: Build packages
-      run: |
-        colcon build --event-handlers console_cohesion+
-
-    - name: Run tests
-      run: |
-        echo "Skipping tests for now"
-        # colcon test --event-handlers console_cohesion+
-        # colcon test-result --verbose
-
-    - name: Finish
-      run: echo "Build and test finished"
+  call-build-and-test:
+    uses: DHBW-Smart-Rollerz/smarty_workspace/.github/workflows/base.yaml@jazzy
+    with:
+      branch_pattern: 'jazzy*'
+    secrets:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
