@@ -10,6 +10,8 @@ repos:
     rev: v5.10.1  # Use the latest version
     hooks:
       - id: isort
+        args:
+          - --profile=black
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.1.0  # this is optional, use `pre-commit autoupdate` to get the latest rev!
     hooks:
@@ -33,3 +35,4 @@ repos:
     - id: pydocstyle
       args:
       - --ignore=D401,D417,D100,D407,D406,D413,D212,D203,D104,D205
+exclude: '.vscode/'
