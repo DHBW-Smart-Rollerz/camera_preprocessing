@@ -1,3 +1,5 @@
+# Camera Preprocessing
+
 This package is responsible for calibrating the camera and preprocessing the images. Therefore it provides the following two nodes:
 
 1. `camera_calibration_node`: Calibrates the camera
