@@ -1,7 +1,30 @@
 This package is responsible for calibrating the camera and preprocessing the images. Therefore it provides the following two nodes:
 
-1. `camera_calibration_node`
-2. `camera_preprocessing_node`
+1. `camera_calibration_node`: Calibrates the camera
+2. `camera_preprocessing_node`: Preprocess the raw image
+
+Additionally, it provides the following classes to transform points and images:
+
+1. `CoordinateTransform`: Transform points
+```python
+from camera_preprocessing.transformation.coordinate_transform import CoordinateTransform
+
+cordinate_transform = CoordinateTransform()
+
+# Transform your points with the provided methods
+```
+
+2. `Birdseye`: Transform images into birdseye
+```python
+from camera_preprocessing.transformation.calibration import Calibration
+from camera_preprocessing.transformation.birds_eyed_view import Birdseye
+
+calib = Calibration()
+bev = Birdseye(calib)
+
+# Transform the img to birdseye view (bev)
+bev_img = bev.transform_img(img)
+```
 
 Please Note that this package is mandatory for using images in the smarty pipeline.
 
@@ -57,3 +80,36 @@ Additionally the following topics are specified in the `config/ros_params.yaml` 
 - **config_file**: Path to the configuration file containing camera parameters (default: `"config/config.yaml"`).
 - **calibration_images_path**: Path to the directory containing calibration images (default: `"img/calib/Neue_3MP_Kamera/"`).
 - **image_topic**: ROS topic from which raw camera images are received (default: `"/camera/image_raw"`).
+
+## Camera Preprocessing
+
+The camera preprocessing node subscribes to the raw image and publishes the undistorted and birdseye view image on the specified topics.
+
+## Usage
+
+The preprocessing can be started by launching the following command:
+
+```bash
+ros2 launch camera_preprocessing camera_preprocessing.launch.py
+```
+
+The following parameters exist:
+
+- `params_file`: Path to the ROS parameters file (default: `config/ros_params.yaml`).
+- `debug`: Enable debug mode to show further images and configs (default: `false`).
+
+Example for all parameters:
+```bash
+ros2 launch camera_preprocessing camera_preprocessing.launch.py params_file:=/path/to/ros_params.yaml debug:=true
+```
+
+## Settings
+The topics are defined as ros_parameters:
+- **calibration_file**: Path to the calibration file where the calibration data will be saved (default: `"config/calib.bin"`).
+- **config_file**: Path to the configuration file containing camera parameters (default: `"config/config.yaml"`).
+- **calibration_images_path**: Path to the directory containing calibration images (default: `"img/calib/Neue_3MP_Kamera/"`).
+- **position_calib_img_path**: Path to the image used for position calibration (default: `"img/position/chessboard.png"`).
+- **num_skip_frames**: Number of frames to skip between processing (default: `1`).
+- **image_topic**: ROS topic from which raw camera images are received (default: `"/camera/image_raw"`).
+- **undistorted_publisher_topic**: ROS topic to which the undistorted images are published (default: `"/camera/undistorted"`).
+- **birds_eye_publisher_topic**: ROS topic to which the bird's eye view images are published (default: `"/camera/birds_eye"`).
