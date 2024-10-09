@@ -561,7 +561,7 @@ class Calibration:
 
         # Apply Adaptive Thresholding
         img = cv2.adaptiveThreshold(
-            img, 125, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
+            img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
         )
 
         # Apply Morphological Transformations
@@ -909,6 +909,16 @@ class Calibration:
     ##############################
     # Properties
     ##############################
+
+    @property
+    def target_size(self):
+        """
+        Get the target size.
+
+        Returns:
+            list -- Target size.
+        """
+        return self.config.get("target_size", [0, 0])
 
     @property
     def all_calibrated(self):
