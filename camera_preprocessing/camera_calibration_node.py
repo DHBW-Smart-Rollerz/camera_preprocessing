@@ -79,6 +79,9 @@ class CameraCalibration(Node):
             # Initialize subscribers
             self.calibration.load_config(config_file)
             self.calibration.calibrate_distortion(resize=False)
+            self.get_logger().info(
+                f"Waiting for the chessboard to be found in the image. Published on: {subscriber_topic}"
+            )
             self.image_subscriber = self.create_subscription(
                 Image, subscriber_topic, self.on_raw_image, 10
             )
