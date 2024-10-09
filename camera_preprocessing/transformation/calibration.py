@@ -119,9 +119,21 @@ class Calibration:
             or force_recalibration
         ):
             self.calibrate_distortion(resize=False)
-            self.calibrate_extrinsic()
-            self.calibrate_birds_eye()
+
+            img = cv2.imread(self._extrinsic_chessboard_file)
+            img = self._prerpocess_extrinsic_img(img, resize=False)
+
+            # Find the chessboard corners
+            ret, corners = self._get_checkerboard_corners(
+                img, self.extrinsic_board_size, show_failure=True, resize=True
+            )
+            if not ret:
+                self.logger.error("Failed to find chessboard corners.")
+                return
             self.calibrate_distortion(resize=True)
+
+            self.calibrate_extrinsic(corners)
+            self.calibrate_birds_eye(corners)
 
         # Check if all calibration parameters are set
         if self.all_calibrated:
@@ -404,7 +416,7 @@ class Calibration:
     ###
     # Birds eye view calibration
     ###
-    def calibrate_birds_eye(self):
+    def calibrate_birds_eye(self, corners):
         """Calibrate the bird's eye view transformation matrix."""
         if not self.is_config_loaded:
             self.logger.error("No configuration loaded.")
@@ -434,10 +446,7 @@ class Calibration:
         )
 
         # Find the chessboard corners
-        gray = self._prerpocess_extrinsic_img(img)
-        ret, corners = self._get_checkerboard_corners(
-            gray, board_size, show_failure=True, resize=True
-        )
+        gray = self._prerpocess_extrinsic_img(img, resize=True)
 
         # Calculate the transformation matrix
         src_points = np.float32(
@@ -527,7 +536,7 @@ class Calibration:
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    def _prerpocess_extrinsic_img(self, img):
+    def _prerpocess_extrinsic_img(self, img, resize=True):
         if img is None:
             self.logger.error("Image is None.")
             return None
@@ -538,6 +547,8 @@ class Calibration:
 
         # Convert to grayscale
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        if resize:
+            img = self.downscale_image(img)
 
         img = cv2.undistort(
             img,
@@ -550,12 +561,12 @@ class Calibration:
 
         # Apply Adaptive Thresholding
         img = cv2.adaptiveThreshold(
-            img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
+            img, 125, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
         )
 
         # Apply Morphological Transformations
         kernel = np.ones((3, 3), np.uint8)
-        img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
+        img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel, iterations=1)
 
         return img
 
@@ -629,7 +640,7 @@ class Calibration:
     # Extrinsic calibration
     ###
 
-    def calibrate_extrinsic(self):
+    def calibrate_extrinsic(self, corners):
         """
         Calibrate the extrinsic parameters.
 
@@ -650,20 +661,13 @@ class Calibration:
 
         # Load the calibration image
         img = cv2.imread(self._extrinsic_chessboard_file)
+
         if img is None:
             self.logger.error("Failed to load the calibration image.")
             return
 
-        img = self._prerpocess_extrinsic_img(img)
+        img = self._prerpocess_extrinsic_img(img, resize=True)
         target_size = (self.config["target_size"][0], self.config["target_size"][1])
-
-        # Find the chessboard corners
-        ret, corners = self._get_checkerboard_corners(
-            img, self.extrinsic_board_size, show_failure=True, resize=False
-        )
-        if not ret:
-            self.logger.error("Failed to find chessboard corners.")
-            return
 
         success, extrinsic_matrix = self._calc_extrinsic_matrix(corners)
         if not success:
