@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Copyright (c) 2024 Smart Rollerz e.V. All rights reserved.
 import cv2
 from rclpy.logging import get_logger
@@ -14,7 +13,7 @@ class BirdseyedviewTransformation:
 
     def __init__(self, **kwargs):
         """Initialize the BirdseyedviewTransformation class."""
-        self.logger = get_logger("birdseyedview_transformation_logger")
+        self.logger = get_logger("birdseyedview_transformation")
         self.logger.warn("Deprecated class. Use Birdseye instead.")
         self.calibration = Calibration(debug=DEBUG)
         self.calibration.setup()
@@ -58,11 +57,13 @@ class Birdseye:
         self._calibration = calibration
         self._debug = debug
 
+        self.logger = get_logger("birdseye")
+
     def recalibrate(self):
         """Recalibrate the camera."""
-        if not self.calibration.all_calibrated:
-            self.calibration.setup()
-        if self.calibration.all_calibrated:
+        if not self._calibration.all_calibrated:
+            self._calibration.setup()
+        if self._calibration.all_calibrated:
             self.logger.warn("Camera is already calibrated.")
 
         self._calibration.calibrate_birds_eye()
