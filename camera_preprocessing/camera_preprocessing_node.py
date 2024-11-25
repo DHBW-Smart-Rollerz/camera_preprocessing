@@ -52,7 +52,7 @@ class CameraPreprocessing(Node):
         )
         num_skip_frames = self.declare_parameter("num_skip_frames", 1).value
         subscriber_topic = self.declare_parameter(
-            "subscriber_topic", "/camera/image_raw"
+            "image_topic", "/camera/image_raw"
         ).value
         undistorted_publisher_topic = self.declare_parameter(
             "undistorted_publisher_topic", "/camera/undistorted"

@@ -1,29 +1,9 @@
 import os
 
+from setup_utils import include_directory
 from setuptools import find_packages, setup
 
 package_name = "camera_preprocessing"
-
-
-# ToDo: Add this to the utils package and import it here
-def package_files(directory_list):
-    """
-    Collect all files in the given directories.
-
-    Arguments:
-        directory_list -- List of directories to search for files.
-
-    Returns:
-        List of paths to all files in the given directories
-    """
-    paths = []
-    for directory in directory_list:
-        for path, directories, filenames in os.walk(directory):
-            for filename in filenames:
-                if filename.endswith(".pdf"):
-                    continue
-                paths.append(os.path.join(path, filename))
-    return paths
 
 
 setup(
@@ -33,21 +13,23 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
-        (
-            os.path.join("share", package_name, "img/calib/Neue_3MP_Kamera"),
-            package_files(["img/calib/Neue_3MP_Kamera"]),
+        *include_directory(
+            install_path=os.path.join("share", package_name, "img/calib"),
+            source_path="img/calib",
+            exclude=[".pdf"],
         ),
-        (
-            os.path.join("share", package_name, "img/position"),
-            package_files(["img/position"]),
+        *include_directory(
+            install_path=os.path.join("share", package_name, "img/position"),
+            source_path="img/position",
+            exclude=[".pdf"],
         ),
-        (
-            os.path.join("share", package_name, "config"),
-            package_files(["config"]),
+        *include_directory(
+            install_path=os.path.join("share", package_name, "config"),
+            source_path="config",
         ),
-        (
-            os.path.join("share", package_name, "launch"),
-            package_files(["launch"]),
+        *include_directory(
+            install_path=os.path.join("share", package_name, "launch"),
+            source_path="launch",
         ),
     ],
     install_requires=["setuptools"],

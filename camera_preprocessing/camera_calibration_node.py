@@ -47,7 +47,7 @@ class CameraCalibration(Node):
         )
         chessboard_path = self.declare_parameter("chessboard_path", "none").value
         subscriber_topic = self.declare_parameter(
-            "subscriber_topic", "/camera/image_raw"
+            "image_topic", "/camera/image_raw"
         ).value
         self.bridge = CvBridge()
         self.lock = False
