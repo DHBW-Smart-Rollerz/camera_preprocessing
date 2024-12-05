@@ -116,7 +116,7 @@ class CameraCalibration(Node):
         self.lock = True
         try:
             cv_img = self.bridge.imgmsg_to_cv2(image, "bgr8")
-            found = self.calibration.find_chessboard(cv_img)
+            found = self.calibration.find_chessboard(cv_img, resize=False)
             if found:
                 self.get_logger().info("Chessboard found in the image.")
                 cv2.imwrite(self.chessboard_path, cv_img)
@@ -124,7 +124,6 @@ class CameraCalibration(Node):
                 os.remove(self.chessboard_path)
                 if ret:
                     rclpy.shutdown()
-                    exit(0)
             else:
                 self.lock = False
                 self.get_logger().info("Chessboard not found in the image.")

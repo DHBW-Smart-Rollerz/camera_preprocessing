@@ -258,7 +258,7 @@ class Calibration:
         fs.release()
         self.logger.info("Calibration data saved to: %s" % path)
 
-    def find_chessboard(self, img: np.ndarray) -> bool:
+    def find_chessboard(self, img: np.ndarray, resize=True) -> bool:
         """
         Find the chessboard corners in the image.
 
@@ -276,9 +276,9 @@ class Calibration:
             self.config["position_board"]["board_size"][0],
             self.config["position_board"]["board_size"][1],
         )
-        img = self._prerpocess_extrinsic_img(img)
+        img = self._prerpocess_extrinsic_img(img, resize=resize)
         ret, _ = self._get_checkerboard_corners(
-            img, board_size, show_failure=False, resize=False
+            img, board_size, show_failure=True, resize=False
         )
         return ret
 
