@@ -483,15 +483,27 @@ class Calibration:
         # Define destination points centered around the center of src_points
         dst_points = np.float32(
             [
-                [center_src[0][0] - width_dst / 2, center_src[0][1] - height_dst / 2],
-                [center_src[0][0] + width_dst / 2, center_src[0][1] - height_dst / 2],
-                [center_src[0][0] + width_dst / 2, center_src[0][1] + height_dst / 2],
-                [center_src[0][0] - width_dst / 2, center_src[0][1] + height_dst / 2],
+                [
+                    center_src[0][0] - width_dst * 0.4,
+                    center_src[0][1] - height_dst * 0.4,
+                ],
+                [
+                    center_src[0][0] + width_dst * 0.4,
+                    center_src[0][1] - height_dst * 0.4,
+                ],
+                [
+                    center_src[0][0] + width_dst * 0.4,
+                    center_src[0][1] + height_dst * 0.4,
+                ],
+                [
+                    center_src[0][0] - width_dst * 0.4,
+                    center_src[0][1] + height_dst * 0.4,
+                ],
             ]
         )
 
         # Move 0.5 * height everything down
-        dst_points[:, 1] += 2 * height_dst
+        dst_points[:, 1] += 1 * height_dst
 
         M = cv2.getPerspectiveTransform(src_points, dst_points)
         M_inv = np.linalg.inv(M)
