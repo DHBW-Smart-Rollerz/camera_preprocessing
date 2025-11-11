@@ -1,5 +1,7 @@
 # Camera Preprocessing
 
+> Attention: In some ros bags in our NAS the camera_topic is /camera/image_raw instead of /camera/image/raw. Use `ros2 bag play <bag_file> --remap /camera/image_raw /camera/image/raw`
+
 This package is responsible for calibrating the camera and preprocessing the images. Therefore it provides the following two nodes:
 
 1. `camera_calibration_node`: Calibrates the camera
