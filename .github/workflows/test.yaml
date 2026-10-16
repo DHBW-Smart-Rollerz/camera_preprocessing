@@ -1,4 +1,4 @@
-name: Build Test
+name: Test
 
 on:
   push:
@@ -7,11 +7,11 @@ on:
   pull_request:
     branches:
       - jazzy*
+  workflow_dispatch:
 
 jobs:
-  call-build-and-test:
-    uses: DHBW-Smart-Rollerz/smarty_workspace/.github/workflows/base.yaml@jazzy
+  call-test:
+    uses: DHBW-Smart-Rollerz/smarty_workspace/.github/workflows/test-reusable.yaml@jazzy
     with:
-      branch_pattern: 'jazzy*'
       type: 'python'
       package_name: 'camera_preprocessing'
