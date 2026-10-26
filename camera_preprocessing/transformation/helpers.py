@@ -5,22 +5,20 @@ import numpy as np
 
 
 class Helpers:
-    """
-    Helper class for transformation functions.
+    """Helper class for transformation functions.
 
     Returns:
         Helper class for transformation functions.
     """
 
     @staticmethod
-    def reorder_corners(corners, rows, cols):
-        """
-        Reorder corners from column-wise to row-wise.
+    def reorder_corners(corners: np.ndarray, rows: int, cols: int) -> np.ndarray:
+        """Reorder corners from column-wise to row-wise.
 
-        Arguments:
-            corners -- list or numpy array of points representing the corners.
-            rows -- int, number of rows in the chessboard.
-            cols -- int, number of columns in the chessboard.
+        Args:
+            corners: list or numpy array of points representing the corners.
+            rows: int, number of rows in the chessboard.
+            cols: int, number of columns in the chessboard.
 
         Returns:
             reordered_corners -- numpy array of reordered points.
@@ -40,16 +38,18 @@ class Helpers:
         return reordered_corners
 
     @staticmethod
-    def world_to_camera(world_points, wTc, is_hom=False) -> np.ndarray:
-        """
-        Transform world points to camera points.
+    def world_to_camera(
+        world_points: np.ndarray,
+        wTc: np.ndarray,  # noqa: N803
+        *,
+        is_hom: bool = False,
+    ) -> np.ndarray:
+        """Transform world points to camera points.
 
-        Arguments:
-            world_points -- numpy array of world points.
-            wTc -- numpy array of the world-to-camera transformation matrix.
-
-        Keyword Arguments:
-            is_hom -- is the input in homogeneous coordinates (default: {False})
+        Args:
+            world_points: numpy array of world points.
+            wTc: numpy array of the world-to-camera transformation matrix.
+            is_hom: is the input in homogeneous coordinates (default: {False})
 
         Returns:
             numpy array of camera points.
@@ -72,16 +72,18 @@ class Helpers:
         return np.array(camera_points)
 
     @staticmethod
-    def camera_to_image(camera_points, K, is_hom=False) -> np.ndarray:
-        """
-        Transform camera points to image points.
+    def camera_to_image(
+        camera_points: np.ndarray,
+        K: np.ndarray,  # noqa: N803
+        *,
+        is_hom: bool = False,
+    ) -> np.ndarray:
+        """Transform camera points to image points.
 
-        Arguments:
-            camera_points -- numpy array of camera points.
-            K -- numpy array of the camera intrinsic matrix.
-
-        Keyword Arguments:
-            is_hom -- is the input in homogeneous coordinates (default: {False})
+        Args:
+            camera_points: numpy array of camera points.
+            K: numpy array of the camera intrinsic matrix.
+            is_hom: is the input in homogeneous coordinates (default: {False})
 
         Returns:
             numpy array of image points.
@@ -104,20 +106,20 @@ class Helpers:
     @staticmethod
     def image_to_camera(
         image_points: np.ndarray,
-        K_inv: np.ndarray,
+        K_inv: np.ndarray,  # noqa: N803
         focal_length: float,
+        *,
         is_hom: bool = False,
     ) -> np.ndarray:
-        """
-        Convert 2D image points to 3D camera points assuming the projection plane at Z = focal_length.
+        """Convert 2D image points to 3D camera points.
 
-        Arguments:
-            image_points -- numpy array of image points (Nx2).
-            K_inv -- numpy array of the inverse of the camera intrinsic matrix (3x3).
-            focal_length -- float, the focal length of the camera.
+        Assumes the projection plane at Z = focal_length.
 
-        Keyword Arguments:
-            is_hom -- is the input in homogeneous coordinates (default: {False})
+        Args:
+            image_points: numpy array of image points (Nx2).
+            K_inv: numpy array of the inverse of the camera intrinsic matrix (3x3).
+            focal_length: float, the focal length of the camera.
+            is_hom: is the input in homogeneous coordinates (default: {False})
 
         Returns:
             numpy array of camera points (Nx3).
@@ -144,20 +146,21 @@ class Helpers:
     @staticmethod
     def camera_to_world(
         camera_points: np.ndarray,
-        cTw: np.ndarray,
-        Z_w: float = 0.0,
+        cTw: np.ndarray,  # noqa: N803
+        Z_w: float = 0.0,  # noqa: N803
+        *,
         is_hom: bool = False,
     ) -> np.ndarray:
-        """
-        Transform camera coordinates to world coordinates using a homogeneous transformation matrix and intersect the rays with the plane Z = Z_w.
+        """Transform camera coordinates to world coordinates.
 
-        Arguments:
-            camera_points -- numpy array of camera points (Nx3).
-            cTw -- numpy array of the homogeneous transformation matrix (4x4).
+        Uses a homogeneous transformation matrix and intersects the rays with the
+        plane Z = Z_w.
 
-        Keyword Arguments:
-            Z_w -- Z-coordinate of the world plane (default: {0.0})
-            is_hom -- is the input in homogeneous coordinates (default: {False})
+        Args:
+            camera_points: numpy array of camera points (Nx3).
+            cTw: numpy array of the homogeneous transformation matrix (4x4).
+            Z_w: Z-coordinate of the world plane (default: {0.0})
+            is_hom: is the input in homogeneous coordinates (default: {False})
 
         Returns:
             numpy array of world points (Nx3).
@@ -206,16 +209,18 @@ class Helpers:
         return np.array(world_points)
 
     @staticmethod
-    def image_to_bird(image_points, iTb, is_hom=False) -> np.ndarray:
-        """
-        Transform image points to bird's-eye view points.
+    def image_to_bird(
+        image_points: np.ndarray,
+        iTb: np.ndarray,  # noqa: N803
+        *,
+        is_hom: bool = False,
+    ) -> np.ndarray:
+        """Transform image points to bird's-eye view points.
 
-        Arguments:
-            image_points -- numpy array of image points.
-            iTb -- numpy array of the image-to-bird's-eye view transformation matrix.
-
-        Keyword Arguments:
-            is_hom -- is the input in homogeneous coordinates (default: {False})
+        Args:
+            image_points: numpy array of image points.
+            iTb: numpy array of the image-to-bird's-eye view transformation matrix.
+            is_hom: is the input in homogeneous coordinates (default: {False})
 
         Returns:
             numpy array of bird's-eye view points.
@@ -240,16 +245,18 @@ class Helpers:
         return np.array(bird_points)
 
     @staticmethod
-    def bird_to_image(bird_points, bTi, is_hom=False) -> np.ndarray:
-        """
-        Transform bird's-eye view points to image points.
+    def bird_to_image(
+        bird_points: np.ndarray,
+        bTi: np.ndarray,  # noqa: N803
+        *,
+        is_hom: bool = False,
+    ) -> np.ndarray:
+        """Transform bird's-eye view points to image points.
 
-        Arguments:
-            bird_points -- numpy array of bird's-eye view points.
-            bTi -- numpy array of the bird's-eye view-to-image transformation matrix.
-
-        Keyword Arguments:
-            is_hom -- is the input in homogeneous coordinates (default: {False})
+        Args:
+            bird_points: numpy array of bird's-eye view points.
+            bTi: numpy array of the bird's-eye view-to-image transformation matrix.
+            is_hom: is the input in homogeneous coordinates (default: {False})
 
         Returns:
             numpy array of image points.

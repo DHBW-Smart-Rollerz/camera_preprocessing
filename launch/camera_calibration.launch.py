@@ -1,16 +1,14 @@
-import os
-
-from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
+from pathlib import Path
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
 
 
-def generate_launch_description():
-    """
-    Generate the launch description.
+def generate_launch_description() -> LaunchDescription:
+    """Generate the launch description.
 
     Returns:
         LaunchDescription -- The launch description.
@@ -18,10 +16,10 @@ def generate_launch_description():
     # Declare the launch arguments
     params_file_arg = DeclareLaunchArgument(
         "params_file",
-        default_value=os.path.join(
-            FindPackageShare("camera_preprocessing").find("camera_preprocessing"),
-            "config",
-            "ros_params.yaml",
+        default_value=str(
+            Path(FindPackageShare("camera_preprocessing").find("camera_preprocessing"))
+            / "config"
+            / "ros_params.yaml"
         ),
         description="Path to the ROS parameters file",
     )
