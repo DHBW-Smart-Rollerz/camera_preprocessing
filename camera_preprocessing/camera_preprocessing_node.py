@@ -2,7 +2,7 @@
 
 # Copyright (c) 2024 Smart Rollerz e.V. All rights reserved.
 
-import os
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -29,26 +29,26 @@ class CameraPreprocessing(Node):
         package_share_path = get_package_share_directory("camera_preprocessing")
         self.get_logger().info(f"Package Path: {package_share_path}")
 
-        debug = self.declare_parameter("debug", False).value
-        calibration_file = os.path.join(
-            package_share_path,
-            self.declare_parameter("calibration_file", "config/calib.bin").value,
+        debug = self.declare_parameter("debug", value=False).value
+        calibration_file = str(
+            Path(package_share_path)
+            / self.declare_parameter("calibration_file", "config/calib.bin").value
         )
-        config_file = os.path.join(
-            package_share_path,
-            self.declare_parameter("config_file", "config/config.yaml").value,
+        config_file = str(
+            Path(package_share_path)
+            / self.declare_parameter("config_file", "config/config.yaml").value
         )
-        calibration_images_path = os.path.join(
-            package_share_path,
-            self.declare_parameter(
+        calibration_images_path = str(
+            Path(package_share_path)
+            / self.declare_parameter(
                 "calibration_images_path", "img/calib/Neue_3MP_Kamera/"
-            ).value,
+            ).value
         )
-        position_calib_img_path = os.path.join(
-            package_share_path,
-            self.declare_parameter(
+        position_calib_img_path = str(
+            Path(package_share_path)
+            / self.declare_parameter(
                 "position_calib_img_path", "img/position/chessboard.png"
-            ).value,
+            ).value
         )
         num_skip_frames = self.declare_parameter("num_skip_frames", 1).value
         subscriber_topic = self.declare_parameter(
@@ -90,15 +90,14 @@ class CameraPreprocessing(Node):
 
         self.get_logger().info("CameraPreprocessing node initialized")
 
-    def adjust_brightness(self, image, target_brightness=127):
-        """
-        Adjust the brightness of the given image.
+    def adjust_brightness(
+        self, image: np.ndarray, target_brightness: float = 127
+    ) -> np.ndarray:
+        """Adjust the brightness of the given image.
 
-        Arguments:
-            image -- Image to adjust the brightness of.
-
-        Keyword Arguments:
-            target_brightness -- Target brightness value [0,255] (default: {127})
+        Args:
+            image: Image to adjust the brightness of.
+            target_brightness: Target brightness value [0,255] (default: {127})
 
         Returns:
             Image with adjusted brightness.
@@ -108,12 +107,11 @@ class CameraPreprocessing(Node):
         adjusted_image = cv2.convertScaleAbs(image, alpha=adjustment_factor, beta=0)
         return adjusted_image
 
-    def on_raw_image(self, image):
-        """
-        Callback function for the raw image subscriber.
+    def on_raw_image(self, image: Image) -> None:
+        """Callback function for the raw image subscriber.
 
-        Arguments:
-            image -- Raw image from the camera.
+        Args:
+            image: Raw image from the camera.
         """
         if self.frame_counter < self.num_skip_frames:
             self.frame_counter += 1
@@ -147,33 +145,30 @@ class CameraPreprocessing(Node):
 
         Timer().print()
 
-    def publish_image_undistorted(self, image_cv2):
-        """
-        Publish the undistorted image.
+    def publish_image_undistorted(self, image_cv2: np.ndarray) -> None:
+        """Publish the undistorted image.
 
-        Arguments:
-            image_cv2 -- Image to publish in OpenCV format.
+        Args:
+            image_cv2: Image to publish in OpenCV format.
         """
         image_msg = self.bridge.cv2_to_imgmsg(image_cv2, "8UC1")
         self.undistorted_image_publisher.publish(image_msg)
 
-    def publish_image_birds_eye(self, image_cv2):
-        """
-        Publish the bird's eye view image.
+    def publish_image_birds_eye(self, image_cv2: np.ndarray) -> None:
+        """Publish the bird's eye view image.
 
-        Arguments:
-            image_cv2 -- Image to publish in OpenCV format.
+        Args:
+            image_cv2: Image to publish in OpenCV format.
         """
         image_msg = self.bridge.cv2_to_imgmsg(image_cv2, "8UC1")
         self.birds_eye_publisher.publish(image_msg)
 
 
-def main(args=None):
-    """
-    Main function to start the CameraPreprocessing node.
+def main(args: list[str] | None = None) -> None:
+    """Main function to start the CameraPreprocessing node.
 
-    Keyword Arguments:
-        args -- Launch Arguments (default: {None})
+    Args:
+        args: Launch Arguments (default: {None})
     """
     rclpy.init(args=args)
     camera_preprocessing = CameraPreprocessing()
