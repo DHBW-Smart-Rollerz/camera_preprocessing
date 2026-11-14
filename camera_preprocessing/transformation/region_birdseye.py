@@ -1,11 +1,16 @@
 # Copyright (c) 2026 Smart Rollerz e.V. All rights reserved.
-"""Bird's eye view for parking with a configurable rectangle on the ground.
+"""Bird's eye view of a freely chosen rectangle on the ground.
 
-The regular bird's eye view (Birdseye, /camera/image/bev) only covers about
-x = -120..1280 mm and y = -920..1000 mm, so many parking spots are cut off at its
-border although they are visible in the camera image. This view is computed from the
-undistorted image with the same calibration for a freely chosen rectangle on the
-ground. It does not change the regular bird's eye view, which other nodes rely on.
+The regular bird's eye view (Birdseye, /camera/image/bev) covers a fixed region of
+about x = -120..1280 mm and y = -920..1000 mm. A RegionBirdseye is computed from the
+undistorted image with the same calibration for any rectangle on the ground and any
+resolution, e.g. a larger region for parking. It does not change the regular bird's
+eye view, which other nodes rely on.
+
+camera_preprocessing publishes every configured view on its own topic, whose name
+contains the region and the resolution (bev_topic_name), e.g.
+/camera/image/bev/x_m150_2000/y_m1200_1200/r3. A subscriber computes the topic from
+the same values, so the image and its conversion between px and mm always match.
 
 Image axes: up = +x (forward), right = -y (right), like the regular bird's eye view.
 The image is a linear map of the ground (vehicle frame of the calibration, mm):
@@ -30,13 +35,16 @@ import numpy as np
 
 from camera_preprocessing.transformation.coordinate_transform import Unit
 
+# Topic of the regular bird's eye view, the region views are published below it
+BEV_TOPIC_PREFIX = "/camera/image/bev"
+
 if TYPE_CHECKING:
     from camera_preprocessing.transformation.coordinate_transform import (
         CoordinateTransform,
     )
 
 
-class ParkingBirdseye:
+class RegionBirdseye:
     """Bird's eye view of a rectangle on the ground (vehicle frame, mm)."""
 
     def __init__(
@@ -47,7 +55,7 @@ class ParkingBirdseye:
         resolution: float = 3.0,
         correction: np.ndarray | None = None,
     ):
-        """Initialize the ParkingBirdseye.
+        """Initialize the RegionBirdseye.
 
         Args:
             transform: Coordinate transformation of the calibration.
@@ -95,12 +103,12 @@ class ParkingBirdseye:
             np.asarray(camera, dtype=np.float32).reshape(-1, 2),
         )
         if self.homography is None:
-            raise RuntimeError("Homography of the parking bird's eye view failed")
+            raise RuntimeError("Homography of the bird's eye view failed")
 
     @classmethod
     def from_config(
         cls, transform: CoordinateTransform, config: dict
-    ) -> ParkingBirdseye:
+    ) -> RegionBirdseye:
         """Create the view from a config dict.
 
         Args:
@@ -118,6 +126,17 @@ class ParkingBirdseye:
             resolution=float(config["resolution"]),
             correction=config.get("ground_correction"),
         )
+
+    def topic_name(self, prefix: str = BEV_TOPIC_PREFIX) -> str:
+        """Return the topic of this view (see bev_topic_name).
+
+        Args:
+            prefix: Topic of the regular bird's eye view.
+
+        Returns:
+            The topic name.
+        """
+        return bev_topic_name(self.x_range, self.y_range, self.resolution, prefix)
 
     def warp(self, undistorted: np.ndarray) -> np.ndarray:
         """Transform the undistorted image into this bird's eye view.
@@ -202,3 +221,45 @@ def apply_homography(homography: np.ndarray, points: np.ndarray) -> np.ndarray:
     points = np.asarray(points, dtype=float).reshape(-1, 2)
     result = np.hstack([points, np.ones((len(points), 1))]) @ homography.T
     return result[:, :2] / result[:, 2:]
+
+
+def bev_topic_name(
+    x_range: tuple[float, float] | list[float],
+    y_range: tuple[float, float] | list[float],
+    resolution: float,
+    prefix: str = BEV_TOPIC_PREFIX,
+) -> str:
+    """Return the topic of the bird's eye view of a region on the ground.
+
+    The name contains the region and the resolution:
+    <prefix>/x_<start>_<end>/y_<start>_<end>/r<resolution>, all in mm. ROS 2 topic
+    names allow neither "-" nor "." and no token may start with a digit, so a minus
+    is written as "m" and a decimal point as "p", e.g. x_range (-150, 2000), y_range
+    (-1200, 1200) and 2.5 mm/px give /camera/image/bev/x_m150_2000/y_m1200_1200/r2p5.
+
+    Args:
+        x_range: Region on the ground in driving direction (min, max) in mm.
+        y_range: Region on the ground to the left (min, max) in mm.
+        resolution: Size of a pixel in mm.
+        prefix: Topic of the regular bird's eye view.
+
+    Returns:
+        The topic name.
+    """
+    x = f"x_{_topic_number(x_range[0])}_{_topic_number(x_range[1])}"
+    y = f"y_{_topic_number(y_range[0])}_{_topic_number(y_range[1])}"
+    return f"{prefix.rstrip('/')}/{x}/{y}/r{_topic_number(resolution)}"
+
+
+def _topic_number(value: float) -> str:
+    """Write a number for a topic name: "-" -> "m", "." -> "p" (up to 3 decimals).
+
+    Args:
+        value: The number.
+
+    Returns:
+        The number as part of a topic name, e.g. -150 -> "m150", 2.5 -> "2p5".
+    """
+    text = f"{abs(float(value)):.3f}".rstrip("0").rstrip(".")
+    sign = "m" if round(float(value), 3) < 0 else ""
+    return sign + text.replace(".", "p")

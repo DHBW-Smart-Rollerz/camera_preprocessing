@@ -1,12 +1,14 @@
 # Copyright (c) 2026 Smart Rollerz e.V. All rights reserved.
-"""Tests of the parking bird's eye view with a synthetic pinhole camera."""
+"""Tests of the region bird's eye view with a synthetic pinhole camera."""
 
 import numpy as np
 import pytest
-from camera_preprocessing.transformation.parking_birds_eye import (
-    ParkingBirdseye,
+from camera_preprocessing.transformation.region_birdseye import (
+    RegionBirdseye,
     apply_homography,
+    bev_topic_name,
 )
+from rclpy.validate_topic_name import validate_topic_name
 
 IMAGE_SIZE = (800, 640)  # Width, height of the undistorted image
 
@@ -56,8 +58,8 @@ def transform():
 
 @pytest.fixture
 def birdseye(transform):
-    """Return the parking bird's eye view with the default region."""
-    return ParkingBirdseye(transform)
+    """Return the bird's eye view with the default region."""
+    return RegionBirdseye(transform)
 
 
 def test_size(birdseye):
@@ -87,8 +89,8 @@ def test_pixel_world_round_trip(birdseye):
 def test_correction(transform):
     """The correction changes the conversion to mm, not the image."""
     correction = np.array([[0.8, -0.05, 88.0], [0.0, 0.82, 0.0], [8e-5, 1.5e-4, 1.0]])
-    plain = ParkingBirdseye(transform)
-    corrected = ParkingBirdseye(transform, correction=correction)
+    plain = RegionBirdseye(transform)
+    corrected = RegionBirdseye(transform, correction=correction)
     np.testing.assert_allclose(corrected.homography, plain.homography)
     pixels = np.array([[100.0, 200.0], [400.0, 600.0]])
     np.testing.assert_allclose(
@@ -131,6 +133,37 @@ def test_warp_shows_ground(transform, birdseye):
 def test_invalid_region(transform):
     """An empty region is rejected."""
     with pytest.raises(ValueError, match="Invalid region"):
-        ParkingBirdseye(transform, x_range=(100.0, 100.0))
+        RegionBirdseye(transform, x_range=(100.0, 100.0))
     with pytest.raises(ValueError, match="Invalid resolution"):
-        ParkingBirdseye(transform, resolution=0.0)
+        RegionBirdseye(transform, resolution=0.0)
+
+
+@pytest.mark.parametrize(
+    ("x_range", "y_range", "resolution", "expected"),
+    [
+        (
+            (-150, 2000),
+            (-1200, 1200),
+            3.0,
+            "/camera/image/bev/x_m150_2000/y_m1200_1200/r3",
+        ),
+        (
+            [-500.0, 2000.0],
+            [-1200.0, 1200.0],
+            2.5,
+            "/camera/image/bev/x_m500_2000/y_m1200_1200/r2p5",
+        ),
+        ((0, 1000.25), (-0.5, 0.0), 10, "/camera/image/bev/x_0_1000p25/y_m0p5_0/r10"),
+    ],
+)
+def test_topic_name(x_range, y_range, resolution, expected):
+    """The topic contains the region and the resolution and is a valid ROS name."""
+    topic = bev_topic_name(x_range, y_range, resolution)
+    assert topic == expected
+    validate_topic_name(topic)  # Raises if invalid
+
+
+def test_topic_name_prefix(birdseye):
+    """The view gives the topic of its region, the prefix is configurable."""
+    assert birdseye.topic_name() == "/camera/image/bev/x_m150_2000/y_m1200_1200/r3"
+    assert birdseye.topic_name("/sim/bev/") == "/sim/bev/x_m150_2000/y_m1200_1200/r3"

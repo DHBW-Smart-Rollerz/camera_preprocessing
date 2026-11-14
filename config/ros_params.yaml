@@ -9,17 +9,26 @@ camera_preprocessing_node:
     image_topic: "/camera/image/raw"
     undistorted_publisher_topic: "/camera/image/undistorted"
     birds_eye_publisher_topic: "/camera/image/bev"
-    # Larger bird's eye view for parking, computed from the undistorted image with
-    # the same calibration. The regular bev above stays unchanged.
+    # Additional bird's eye views of freely chosen rectangles on the ground, computed
+    # from the undistorted image with the same calibration. The regular bev above
+    # stays unchanged. Every view is published on its own topic, named after its
+    # region and resolution (mm, "-" -> "m", "." -> "p"):
+    #   <bev_view_topic_prefix>/x_<x start>_<x end>/y_<y start>_<y end>/r<resolution>
+    # A subscriber computes the topic from the same values
+    # (camera_preprocessing.transformation.region_birdseye.bev_topic_name).
     # Image: up = +x (forward), right = -y (right), x = x_range[1] - row * resolution,
-    # y = y_range[1] - column * resolution. Must match the parking_bev section of
-    # src/parking/config/model.yaml (otherwise the px <-> mm conversion is wrong).
-    parking_bev_enabled: true
-    parking_bev_publisher_topic: "/camera/image/parking_bev"
-    parking_bev:
-      x_range: [-150.0, 2000.0] # mm in driving direction (image up)
-      y_range: [-1200.0, 1200.0] # mm to the left (image left)
-      resolution: 3.0 # mm per px -> 800 x 717 px
+    # y = y_range[1] - column * resolution.
+    # bev_views: names of the views (only labels of this file, not part of the
+    # topic), each with a section in bev_view. [""]: no additional view.
+    bev_view_topic_prefix: "/camera/image/bev"
+    bev_views: ["wide"]
+    bev_view:
+      # Used by parking (section parking_bev of src/parking/config/model.yaml)
+      # -> /camera/image/bev/x_m150_2000/y_m1200_1200/r3
+      wide:
+        x_range: [-150.0, 2000.0] # mm in driving direction (image up)
+        y_range: [-1200.0, 1200.0] # mm to the left (image left)
+        resolution: 3.0 # mm per px -> 800 x 717 px
 
 # Configuration for camera_calibration_node
 camera_calibration_node:

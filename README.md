@@ -117,3 +117,52 @@ The topics are defined as ros_parameters:
 - **image_topic**: ROS topic from which raw camera images are received (default: `"/camera/image_raw"`).
 - **undistorted_publisher_topic**: ROS topic to which the undistorted images are published (default: `"/camera/undistorted"`).
 - **birds_eye_publisher_topic**: ROS topic to which the bird's eye view images are published (default: `"/camera/birds_eye"`).
+- **bev_view_topic_prefix**: Prefix of the topics of the additional bird's eye views (default: `"/camera/image/bev"`).
+- **bev_views**: Names of additional bird's eye views of freely chosen regions (default: none, `[""]`: none). Each name needs a section `bev_view.<name>` with `x_range` (mm forward, `[min, max]`), `y_range` (mm to the left, `[min, max]`) and `resolution` (mm per px). The name is only a label in the YAML file, see [Additional bird's eye views](#additional-birds-eye-views).
+
+### Additional bird's eye views
+
+Besides the regular bird's eye view (fixed region of about x = -120..1280 mm, y = -920..1000 mm), the node can publish bird's eye views of any rectangle on the ground with any resolution (`RegionBirdseye`). Every view gets its own topic named after its region and resolution, so that any node can use it and the node stays independent of its subscribers:
+
+```
+<bev_view_topic_prefix>/x_<x start>_<x end>/y_<y start>_<y end>/r<resolution>
+```
+
+All values in mm. ROS 2 topic names allow neither `-` nor `.` and no part of the name may start with a digit, therefore a minus is written as `m` and a decimal point as `p`. Examples:
+
+| x_range | y_range | resolution | Topic | Size |
+| --- | --- | --- | --- | --- |
+| `[-150, 2000]` | `[-1200, 1200]` | `3.0` | `/camera/image/bev/x_m150_2000/y_m1200_1200/r3` | 800 x 717 px |
+| `[-500, 2000]` | `[-1200, 1200]` | `2.5` | `/camera/image/bev/x_m500_2000/y_m1200_1200/r2p5` | 960 x 1000 px |
+
+Add a view in `config/ros_params.yaml`:
+
+```yaml
+bev_views: ["wide", "near"]
+bev_view:
+  wide: {x_range: [-150.0, 2000.0], y_range: [-1200.0, 1200.0], resolution: 3.0}
+  near: {x_range: [0.0, 1000.0], y_range: [-500.0, 500.0], resolution: 2.0}
+```
+
+or with one line in the node (`camera_preprocessing_node.py`):
+
+```python
+self.add_bev_view(x_range=(0, 1000), y_range=(-500, 500), resolution=2.0)
+```
+
+A subscriber computes the topic from the same values, so the image and its conversion between px and mm always match:
+
+```python
+from camera_preprocessing.transformation.region_birdseye import (
+    RegionBirdseye,
+    bev_topic_name,
+)
+
+topic = bev_topic_name(x_range=(-150, 2000), y_range=(-1200, 1200), resolution=3.0)
+
+# Conversion between the pixels of the view and the vehicle frame (mm)
+view = RegionBirdseye(CoordinateTransform(), (-150, 2000), (-1200, 1200), 3.0)
+points_mm = view.pixel_to_world(pixels)
+```
+
+Image axes: up = +x (forward), right = -y (right), `x = x_range[1] - row * resolution`, `y = y_range[1] - column * resolution`. Pixels outside of the camera's field of view are black.

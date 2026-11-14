@@ -3,6 +3,7 @@
 # Copyright (c) 2024 Smart Rollerz e.V. All rights reserved.
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
@@ -11,8 +12,8 @@ from ament_index_python.packages import get_package_share_directory
 from cv_bridge import CvBridge, CvBridgeError
 from rcl_interfaces.msg import ParameterDescriptor
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from sensor_msgs.msg import Image
-from std_msgs.msg import Header
 from timing.timer import Timer
 
 from camera_preprocessing.transformation.birds_eyed_view import Birdseye
@@ -21,7 +22,13 @@ from camera_preprocessing.transformation.coordinate_transform import (
     CoordinateTransform,
 )
 from camera_preprocessing.transformation.distortion import Distortion
-from camera_preprocessing.transformation.parking_birds_eye import ParkingBirdseye
+from camera_preprocessing.transformation.region_birdseye import (
+    BEV_TOPIC_PREFIX,
+    RegionBirdseye,
+)
+
+if TYPE_CHECKING:
+    from rclpy.publisher import Publisher
 
 
 class CameraPreprocessing(Node):
@@ -67,27 +74,16 @@ class CameraPreprocessing(Node):
             "birds_eye_publisher_topic", "/camera/birds_eye"
         ).value
 
-        # Larger bird's eye view for parking (rectangle on the ground in mm,
-        # x forward, y left), published in addition to the regular one
-        parking_bev_enabled = self.declare_parameter(
-            "parking_bev_enabled", value=True
+        # Additional bird's eye views of freely chosen regions on the ground, each
+        # one on its own topic <bev_view_topic_prefix>/x_.._../y_.._../r.. (see
+        # region_birdseye.bev_topic_name). Names of the views in bev_views, their
+        # region in bev_view.<name>.x_range, .y_range and .resolution.
+        self.bev_view_topic_prefix = self.declare_parameter(
+            "bev_view_topic_prefix", BEV_TOPIC_PREFIX
         ).value
-        parking_bev_publisher_topic = self.declare_parameter(
-            "parking_bev_publisher_topic", "/camera/image/parking_bev"
+        bev_view_names = self.declare_parameter(
+            "bev_views", Parameter.Type.STRING_ARRAY
         ).value
-        # Dynamic typing: integers in the yaml (e.g. [-150, 2000]) are accepted
-        number = ParameterDescriptor(dynamic_typing=True)
-        parking_bev_config = {
-            "x_range": self.declare_parameter(
-                "parking_bev.x_range", [-150.0, 2000.0], number
-            ).value,
-            "y_range": self.declare_parameter(
-                "parking_bev.y_range", [-1200.0, 1200.0], number
-            ).value,
-            "resolution": self.declare_parameter(
-                "parking_bev.resolution", 3.0, number
-            ).value,
-        }
 
         self.frame_counter = 0
         self.num_skip_frames = num_skip_frames
@@ -105,19 +101,14 @@ class CameraPreprocessing(Node):
         self.distorter = Distortion(self.calibration, debug)
         self.bird = Birdseye(self.calibration, self.distorter, debug)
 
-        # Parking bird's eye view, uses the same calibration as the regular one
-        self.parking_bird = None
-        if parking_bev_enabled:
-            self.parking_bird = ParkingBirdseye.from_config(
-                CoordinateTransform(calib=self.calibration, debug=debug),
-                parking_bev_config,
-            )
-            bird = self.parking_bird
-            self.get_logger().info(
-                f"Parking bird's eye view: x={list(bird.x_range)} mm, "
-                f"y={list(bird.y_range)} mm, {bird.resolution:.1f} mm/px "
-                f"-> {bird.size[0]}x{bird.size[1]} px"
-            )
+        # Additional bird's eye views, use the same calibration as the regular one
+        self.coordinate_transform = CoordinateTransform(
+            calib=self.calibration, debug=debug
+        )
+        self.bev_views: list[tuple[RegionBirdseye, Publisher]] = []
+        for name in bev_view_names or []:
+            if name:  # [""]: no additional view
+                self.add_bev_view(**self.bev_view_config(name))
 
         # Initialize subscribers and publishers
         self.image_subscriber = self.create_subscription(
@@ -129,13 +120,72 @@ class CameraPreprocessing(Node):
         self.birds_eye_publisher = self.create_publisher(
             Image, birds_eye_publisher_topic, 10
         )
-        self.parking_bev_publisher = None
-        if self.parking_bird is not None:
-            self.parking_bev_publisher = self.create_publisher(
-                Image, parking_bev_publisher_topic, 10
-            )
 
         self.get_logger().info("CameraPreprocessing node initialized")
+
+    def bev_view_config(self, name: str) -> dict[str, list[float] | float]:
+        """Declare and read the parameters of an additional bird's eye view.
+
+        Args:
+            name: Name of the view in bev_views.
+
+        Returns:
+            Keyword arguments of add_bev_view (x_range, y_range, resolution).
+
+        Raises:
+            ValueError: If a parameter of the view is missing.
+        """
+        # Dynamic typing: integers in the yaml (e.g. [-150, 2000]) are accepted
+        number = ParameterDescriptor(dynamic_typing=True)
+        config = {}
+        for key in ("x_range", "y_range", "resolution"):
+            value = self.declare_parameter(f"bev_view.{name}.{key}", None, number).value
+            if value is None:
+                raise ValueError(
+                    f"Parameter bev_view.{name}.{key} of the bird's eye view '{name}' "
+                    "is missing"
+                )
+            config[key] = value
+        return config
+
+    def add_bev_view(
+        self,
+        x_range: tuple[float, float] | list[float],
+        y_range: tuple[float, float] | list[float],
+        resolution: float,
+    ) -> str:
+        """Publish an additional bird's eye view of a rectangle on the ground.
+
+        The view is computed from the undistorted image of every frame and published
+        on <bev_view_topic_prefix>/x_<start>_<end>/y_<start>_<end>/r<resolution>
+        (mm, "-" written as "m", "." as "p"), e.g.
+        add_bev_view((-150, 2000), (-1200, 1200), 3.0) publishes
+        /camera/image/bev/x_m150_2000/y_m1200_1200/r3.
+
+        Args:
+            x_range: Region on the ground in driving direction (min, max) in mm.
+            y_range: Region on the ground to the left (min, max) in mm.
+            resolution: Size of a pixel in mm.
+
+        Returns:
+            The topic of the view.
+        """
+        view = RegionBirdseye(
+            self.coordinate_transform,
+            x_range=(float(x_range[0]), float(x_range[1])),
+            y_range=(float(y_range[0]), float(y_range[1])),
+            resolution=float(resolution),
+        )
+        topic = view.topic_name(self.bev_view_topic_prefix)
+        if any(publisher.topic_name == topic for _, publisher in self.bev_views):
+            self.get_logger().warning(f"Bird's eye view {topic} exists already")
+            return topic
+        self.bev_views.append((view, self.create_publisher(Image, topic, 10)))
+        self.get_logger().info(
+            f"Bird's eye view x={list(view.x_range)} mm, y={list(view.y_range)} mm, "
+            f"{view.resolution:g} mm/px -> {view.size[0]}x{view.size[1]} px on {topic}"
+        )
+        return topic
 
     def adjust_brightness(
         self, image: np.ndarray, target_brightness: float = 127
@@ -186,16 +236,20 @@ class CameraPreprocessing(Node):
         with Timer(name="birds_eye", filter_strength=40):
             img_birds_eye = self.bird.transform_img(img_undistorted)
 
-        img_parking_bev = None
-        if self.parking_bird is not None:
-            with Timer(name="parking_bev", filter_strength=40):
-                img_parking_bev = self.parking_bird.warp(img_undistorted)
+        img_bev_views = []
+        for view, _ in self.bev_views:
+            with Timer(name=f"bev {view.size[0]}x{view.size[1]}", filter_strength=40):
+                img_bev_views.append(view.warp(img_undistorted))
 
         with Timer(name="publish", filter_strength=40):
             self.publish_image_undistorted(img_undistorted)
             self.publish_image_birds_eye(img_birds_eye)
-            if img_parking_bev is not None:
-                self.publish_image_parking_bev(img_parking_bev, image.header)
+            for (_, publisher), img_view in zip(
+                self.bev_views, img_bev_views, strict=True
+            ):
+                publisher.publish(
+                    self.bridge.cv2_to_imgmsg(img_view, "8UC1", header=image.header)
+                )
 
         Timer().print()
 
@@ -216,16 +270,6 @@ class CameraPreprocessing(Node):
         """
         image_msg = self.bridge.cv2_to_imgmsg(image_cv2, "8UC1")
         self.birds_eye_publisher.publish(image_msg)
-
-    def publish_image_parking_bev(self, image_cv2: np.ndarray, header: Header) -> None:
-        """Publish the parking bird's eye view image.
-
-        Args:
-            image_cv2: Image to publish in OpenCV format.
-            header: Header of the raw image (time stamp of the frame).
-        """
-        image_msg = self.bridge.cv2_to_imgmsg(image_cv2, "8UC1", header=header)
-        self.parking_bev_publisher.publish(image_msg)
 
 
 def main(args: list[str] | None = None) -> None:
