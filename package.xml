@@ -8,7 +8,9 @@
   <license>MIT</license>
 
   <depend>rclpy</depend>
+  <depend>rcl_interfaces</depend>
   <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>cv_bridge</depend>
   <depend>timing</depend>
   <depend>setup_utils</depend>
