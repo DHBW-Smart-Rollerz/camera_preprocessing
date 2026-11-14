@@ -2,20 +2,26 @@
 
 # Copyright (c) 2024 Smart Rollerz e.V. All rights reserved.
 
-import os
+from pathlib import Path
 
 import cv2
 import numpy as np
 import rclpy
 from ament_index_python.packages import get_package_share_directory
 from cv_bridge import CvBridge, CvBridgeError
+from rcl_interfaces.msg import ParameterDescriptor
 from rclpy.node import Node
 from sensor_msgs.msg import Image
+from std_msgs.msg import Header
 from timing.timer import Timer
 
 from camera_preprocessing.transformation.birds_eyed_view import Birdseye
 from camera_preprocessing.transformation.calibration import Calibration
+from camera_preprocessing.transformation.coordinate_transform import (
+    CoordinateTransform,
+)
 from camera_preprocessing.transformation.distortion import Distortion
+from camera_preprocessing.transformation.parking_birds_eye import ParkingBirdseye
 
 
 class CameraPreprocessing(Node):
@@ -29,26 +35,30 @@ class CameraPreprocessing(Node):
         package_share_path = get_package_share_directory("camera_preprocessing")
         self.get_logger().info(f"Package Path: {package_share_path}")
 
-        debug = self.declare_parameter("debug", False).value
-        calibration_file = os.path.join(
-            package_share_path,
-            self.declare_parameter("calibration_file", "config/calib.bin").value,
+        debug = self.declare_parameter("debug", value=False).value
+        # Paths relative to the package share directory (absolute paths stay)
+        share = Path(package_share_path)
+        calibration_file = str(
+            share / self.declare_parameter("calibration_file", "config/calib.bin").value
         )
-        config_file = os.path.join(
-            package_share_path,
-            self.declare_parameter("config_file", "config/config.yaml").value,
+        config_file = str(
+            share / self.declare_parameter("config_file", "config/config.yaml").value
         )
-        calibration_images_path = os.path.join(
-            package_share_path,
-            self.declare_parameter(
-                "calibration_images_path", "img/calib/Neue_3MP_Kamera/"
-            ).value,
+        # os.path.join kept the trailing "/" of the directory, Path drops it
+        calibration_images_path = (
+            str(
+                share
+                / self.declare_parameter(
+                    "calibration_images_path", "img/calib/Neue_3MP_Kamera/"
+                ).value
+            )
+            + "/"
         )
-        position_calib_img_path = os.path.join(
-            package_share_path,
-            self.declare_parameter(
+        position_calib_img_path = str(
+            share
+            / self.declare_parameter(
                 "position_calib_img_path", "img/position/chessboard.png"
-            ).value,
+            ).value
         )
         num_skip_frames = self.declare_parameter("num_skip_frames", 1).value
         subscriber_topic = self.declare_parameter(
@@ -60,6 +70,28 @@ class CameraPreprocessing(Node):
         birds_eye_publisher_topic = self.declare_parameter(
             "birds_eye_publisher_topic", "/camera/birds_eye"
         ).value
+
+        # Larger bird's eye view for parking (rectangle on the ground in mm,
+        # x forward, y left), published in addition to the regular one
+        parking_bev_enabled = self.declare_parameter(
+            "parking_bev_enabled", value=True
+        ).value
+        parking_bev_publisher_topic = self.declare_parameter(
+            "parking_bev_publisher_topic", "/camera/image/parking_bev"
+        ).value
+        # Dynamic typing: integers in the yaml (e.g. [-150, 2000]) are accepted
+        number = ParameterDescriptor(dynamic_typing=True)
+        parking_bev_config = {
+            "x_range": self.declare_parameter(
+                "parking_bev.x_range", [-150.0, 2000.0], number
+            ).value,
+            "y_range": self.declare_parameter(
+                "parking_bev.y_range", [-1200.0, 1200.0], number
+            ).value,
+            "resolution": self.declare_parameter(
+                "parking_bev.resolution", 3.0, number
+            ).value,
+        }
 
         self.frame_counter = 0
         self.num_skip_frames = num_skip_frames
@@ -77,6 +109,20 @@ class CameraPreprocessing(Node):
         self.distorter = Distortion(self.calibration, debug)
         self.bird = Birdseye(self.calibration, self.distorter, debug)
 
+        # Parking bird's eye view, uses the same calibration as the regular one
+        self.parking_bird = None
+        if parking_bev_enabled:
+            self.parking_bird = ParkingBirdseye.from_config(
+                CoordinateTransform(calib=self.calibration, debug=debug),
+                parking_bev_config,
+            )
+            bird = self.parking_bird
+            self.get_logger().info(
+                f"Parking bird's eye view: x={list(bird.x_range)} mm, "
+                f"y={list(bird.y_range)} mm, {bird.resolution:.1f} mm/px "
+                f"-> {bird.size[0]}x{bird.size[1]} px"
+            )
+
         # Initialize subscribers and publishers
         self.image_subscriber = self.create_subscription(
             Image, subscriber_topic, self.on_raw_image, 10
@@ -87,18 +133,22 @@ class CameraPreprocessing(Node):
         self.birds_eye_publisher = self.create_publisher(
             Image, birds_eye_publisher_topic, 10
         )
+        self.parking_bev_publisher = None
+        if self.parking_bird is not None:
+            self.parking_bev_publisher = self.create_publisher(
+                Image, parking_bev_publisher_topic, 10
+            )
 
         self.get_logger().info("CameraPreprocessing node initialized")
 
-    def adjust_brightness(self, image, target_brightness=127):
-        """
-        Adjust the brightness of the given image.
+    def adjust_brightness(
+        self, image: np.ndarray, target_brightness: float = 127
+    ) -> np.ndarray:
+        """Adjust the brightness of the given image.
 
-        Arguments:
-            image -- Image to adjust the brightness of.
-
-        Keyword Arguments:
-            target_brightness -- Target brightness value [0,255] (default: {127})
+        Args:
+            image: Image to adjust the brightness of.
+            target_brightness: Target brightness value [0, 255].
 
         Returns:
             Image with adjusted brightness.
@@ -108,12 +158,11 @@ class CameraPreprocessing(Node):
         adjusted_image = cv2.convertScaleAbs(image, alpha=adjustment_factor, beta=0)
         return adjusted_image
 
-    def on_raw_image(self, image):
-        """
-        Callback function for the raw image subscriber.
+    def on_raw_image(self, image: Image) -> None:
+        """Callback function for the raw image subscriber.
 
-        Arguments:
-            image -- Raw image from the camera.
+        Args:
+            image: Raw image from the camera.
         """
         if self.frame_counter < self.num_skip_frames:
             self.frame_counter += 1
@@ -141,39 +190,53 @@ class CameraPreprocessing(Node):
         with Timer(name="birds_eye", filter_strength=40):
             img_birds_eye = self.bird.transform_img(img_undistorted)
 
+        img_parking_bev = None
+        if self.parking_bird is not None:
+            with Timer(name="parking_bev", filter_strength=40):
+                img_parking_bev = self.parking_bird.warp(img_undistorted)
+
         with Timer(name="publish", filter_strength=40):
             self.publish_image_undistorted(img_undistorted)
             self.publish_image_birds_eye(img_birds_eye)
+            if img_parking_bev is not None:
+                self.publish_image_parking_bev(img_parking_bev, image.header)
 
         Timer().print()
 
-    def publish_image_undistorted(self, image_cv2):
-        """
-        Publish the undistorted image.
+    def publish_image_undistorted(self, image_cv2: np.ndarray) -> None:
+        """Publish the undistorted image.
 
-        Arguments:
-            image_cv2 -- Image to publish in OpenCV format.
+        Args:
+            image_cv2: Image to publish in OpenCV format.
         """
         image_msg = self.bridge.cv2_to_imgmsg(image_cv2, "8UC1")
         self.undistorted_image_publisher.publish(image_msg)
 
-    def publish_image_birds_eye(self, image_cv2):
-        """
-        Publish the bird's eye view image.
+    def publish_image_birds_eye(self, image_cv2: np.ndarray) -> None:
+        """Publish the bird's eye view image.
 
-        Arguments:
-            image_cv2 -- Image to publish in OpenCV format.
+        Args:
+            image_cv2: Image to publish in OpenCV format.
         """
         image_msg = self.bridge.cv2_to_imgmsg(image_cv2, "8UC1")
         self.birds_eye_publisher.publish(image_msg)
 
+    def publish_image_parking_bev(self, image_cv2: np.ndarray, header: Header) -> None:
+        """Publish the parking bird's eye view image.
 
-def main(args=None):
-    """
-    Main function to start the CameraPreprocessing node.
+        Args:
+            image_cv2: Image to publish in OpenCV format.
+            header: Header of the raw image (time stamp of the frame).
+        """
+        image_msg = self.bridge.cv2_to_imgmsg(image_cv2, "8UC1", header=header)
+        self.parking_bev_publisher.publish(image_msg)
 
-    Keyword Arguments:
-        args -- Launch Arguments (default: {None})
+
+def main(args: list[str] | None = None) -> None:
+    """Main function to start the CameraPreprocessing node.
+
+    Args:
+        args: Launch arguments.
     """
     rclpy.init(args=args)
     camera_preprocessing = CameraPreprocessing()

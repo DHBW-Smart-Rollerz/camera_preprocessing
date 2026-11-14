@@ -9,6 +9,17 @@ camera_preprocessing_node:
     image_topic: "/camera/image/raw"
     undistorted_publisher_topic: "/camera/image/undistorted"
     birds_eye_publisher_topic: "/camera/image/bev"
+    # Larger bird's eye view for parking, computed from the undistorted image with
+    # the same calibration. The regular bev above stays unchanged.
+    # Image: up = +x (forward), right = -y (right), x = x_range[1] - row * resolution,
+    # y = y_range[1] - column * resolution. Must match the parking_bev section of
+    # src/parking/config/model.yaml (otherwise the px <-> mm conversion is wrong).
+    parking_bev_enabled: true
+    parking_bev_publisher_topic: "/camera/image/parking_bev"
+    parking_bev:
+      x_range: [-150.0, 2000.0] # mm in driving direction (image up)
+      y_range: [-1200.0, 1200.0] # mm to the left (image left)
+      resolution: 3.0 # mm per px -> 800 x 717 px
 
 # Configuration for camera_calibration_node
 camera_calibration_node:
