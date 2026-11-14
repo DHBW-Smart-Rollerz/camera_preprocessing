@@ -3,17 +3,32 @@
 
 import os
 from pathlib import Path
+from types import ModuleType
 
 import cv2
 import numpy as np
 import yaml
 from ament_index_python.packages import get_package_share_directory
-from matplotlib import pyplot as plt
 from rclpy.clock import Clock
 from rclpy.logging import get_logger
 from scipy.spatial.transform import Rotation
 
 from camera_preprocessing.transformation.helpers import Helpers
+
+
+def _pyplot() -> ModuleType:
+    """Import pyplot, only needed for the debug plots.
+
+    matplotlib of apt is built against numpy 1.x and fails to import together with
+    numpy 2 of pip (e.g. in the CI), so it is not imported at module level.
+
+    Returns:
+        The module matplotlib.pyplot.
+    """
+    from matplotlib import pyplot  # noqa: PLC0415 - only for debug plots, see above
+
+    return pyplot
+
 
 share_dir = get_package_share_directory("camera_preprocessing")
 
@@ -409,6 +424,7 @@ class Calibration:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         gray = self.downscale_image(gray) if resize else gray
         undistorted = cv2.undistort(gray, new_camera_matrix, dist_coeffs)
+        plt = _pyplot()
         plt.figure(figsize=(10, 10))
         plt.subplot(1, 2, 1)
         plt.imshow(gray, cmap="gray")
@@ -608,6 +624,7 @@ class Calibration:
             img, self._calib_birds_eye["iTb"], (img.shape[1], img.shape[0])
         )
 
+        plt = _pyplot()
         plt.figure(figsize=(12, 6))
         plt.subplot(1, 2, 1)
         plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
@@ -718,6 +735,7 @@ class Calibration:
             if self.debug:
                 self._display_result_extrinsic(img, corners)
         except Exception as e:
+            plt = _pyplot()
             plt.close()
             # rclpy loggers have no exception() method
             self.logger.error(f"Failed to display the calibration result: {e!s}")  # noqa: TRY400
@@ -743,6 +761,7 @@ class Calibration:
         z_axis = np.array([0, 0, 1])
 
         # Plotting
+        plt = _pyplot()
         fig = plt.figure(figsize=(12, 6))
 
         ax = fig.add_subplot(121)
@@ -1200,6 +1219,7 @@ class Calibration:
             return ret, corners2
         if show_failure:
             self.logger.error("Failed to find chessboard corners.")
+            plt = _pyplot()
             plt.imshow(img, cmap="gray")
             plt.title("Failed to find chessboard corners")
             plt.show()

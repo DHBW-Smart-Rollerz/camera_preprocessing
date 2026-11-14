@@ -3,12 +3,16 @@
 
 import numpy as np
 import pytest
+from rclpy.validate_topic_name import validate_topic_name
+
+# isort: split
+# The package is first-party in the CI (ruff.toml in the package root) but not with
+# the ruff.toml of the workspace (pre-commit), a separate block sorts the same in both
 from camera_preprocessing.transformation.region_birdseye import (
     RegionBirdseye,
     apply_homography,
     bev_topic_name,
 )
-from rclpy.validate_topic_name import validate_topic_name
 
 IMAGE_SIZE = (800, 640)  # Width, height of the undistorted image
 
