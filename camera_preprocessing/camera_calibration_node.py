@@ -2,7 +2,8 @@
 
 # Copyright (c) 2024 Smart Rollerz e.V. All rights reserved.
 
-import os
+import sys
+from pathlib import Path
 
 import cv2
 import rclpy
@@ -15,11 +16,10 @@ from camera_preprocessing.transformation.calibration import Calibration
 
 
 class CameraCalibration(Node):
-    """
-    CameraCalibration Node.
+    """CameraCalibration Node.
 
-    Arguments:
-        Node -- The ROS node class.
+    Args:
+        Node: The ROS node class.
     """
 
     def __init__(self):
@@ -30,20 +30,20 @@ class CameraCalibration(Node):
         package_share_path = get_package_share_directory("camera_preprocessing")
         self.get_logger().info(f"Package Path: {package_share_path}")
 
-        debug = self.declare_parameter("debug", False).value
-        calibration_file = os.path.join(
-            package_share_path,
-            self.declare_parameter("calibration_file", "config/calib.bin").value,
+        debug = self.declare_parameter("debug", value=False).value
+        calibration_file = str(
+            Path(package_share_path)
+            / self.declare_parameter("calibration_file", "config/calib.bin").value
         )
-        config_file = os.path.join(
-            package_share_path,
-            self.declare_parameter("config_file", "config/config.yaml").value,
+        config_file = str(
+            Path(package_share_path)
+            / self.declare_parameter("config_file", "config/config.yaml").value
         )
-        calibration_images_path = os.path.join(
-            package_share_path,
-            self.declare_parameter(
+        calibration_images_path = str(
+            Path(package_share_path)
+            / self.declare_parameter(
                 "calibration_images_path", "img/calib/Neue_3MP_Kamera/"
-            ).value,
+            ).value
         )
         chessboard_path = self.declare_parameter("chessboard_path", "none").value
         subscriber_topic = self.declare_parameter(
@@ -54,7 +54,9 @@ class CameraCalibration(Node):
 
         # Set the path to the chessboard image
         self.chessboard_path = (
-            "/tmp/chessboard.png" if chessboard_path == "none" else chessboard_path
+            "/tmp/chessboard.png"  # noqa: S108
+            if chessboard_path == "none"
+            else chessboard_path
         )
 
         # Load distortion and bird's eye view transformations
@@ -71,24 +73,24 @@ class CameraCalibration(Node):
             ret = self.calibrate()
             if ret:
                 rclpy.shutdown()
-                exit(0)
+                sys.exit(0)
             else:
                 rclpy.shutdown()
-                exit(1)
+                sys.exit(1)
         else:
             # Initialize subscribers
             self.calibration.load_config(config_file)
             self.calibration.calibrate_distortion(resize=False)
             self.get_logger().info(
-                f"Waiting for the chessboard to be found in the image. Published on: {subscriber_topic}"
+                "Waiting for the chessboard to be found in the image. "
+                f"Published on: {subscriber_topic}"
             )
             self.image_subscriber = self.create_subscription(
                 Image, subscriber_topic, self.on_raw_image, 10
             )
 
     def calibrate(self) -> bool:
-        """
-        Calibrate the camera.
+        """Calibrate the camera.
 
         Returns:
             bool -- True if the camera was calibrated successfully, False otherwise.
@@ -99,17 +101,15 @@ class CameraCalibration(Node):
             self.get_logger().info(str(self.calibration))
             self.get_logger().info("Camera calibrated successfully.")
             return True
-        else:
-            self.get_logger().info(str(self.calibration))
-            self.get_logger().error("Failed to calibrate the camera.")
-            return False
+        self.get_logger().info(str(self.calibration))
+        self.get_logger().error("Failed to calibrate the camera.")
+        return False
 
-    def on_raw_image(self, image):
-        """
-        Callback function for the raw image subscriber.
+    def on_raw_image(self, image: Image) -> None:
+        """Callback function for the raw image subscriber.
 
-        Arguments:
-            image -- The raw image message.
+        Args:
+            image: The raw image message.
         """
         if self.lock:
             return
@@ -121,7 +121,7 @@ class CameraCalibration(Node):
                 self.get_logger().info("Chessboard found in the image.")
                 cv2.imwrite(self.chessboard_path, cv_img)
                 ret = self.calibrate()
-                os.remove(self.chessboard_path)
+                Path(self.chessboard_path).unlink()
                 if ret:
                     rclpy.shutdown()
             else:
@@ -132,12 +132,11 @@ class CameraCalibration(Node):
             self.lock = False
 
 
-def main(args=None):
-    """
-    Main function to start the CameraCalibration node.
+def main(args: list[str] | None = None) -> None:
+    """Main function to start the CameraCalibration node.
 
-    Keyword Arguments:
-        args -- Launch arguments (default: {None})
+    Args:
+        args: Launch arguments (default: {None})
     """
     rclpy.init(args=args)
     camera_calibration = CameraCalibration()

@@ -2,14 +2,13 @@
 # Copyright (c) 2024 Smart Rollerz e.V. All rights reserved.
 
 import os
-from typing import Tuple
+from pathlib import Path
 
 import cv2
 import numpy as np
 import yaml
 from ament_index_python.packages import get_package_share_directory
 from matplotlib import pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from rclpy.clock import Clock
 from rclpy.logging import get_logger
 from scipy.spatial.transform import Rotation
@@ -18,13 +17,13 @@ from camera_preprocessing.transformation.helpers import Helpers
 
 share_dir = get_package_share_directory("camera_preprocessing")
 
-DEFAULT_CALIBRATION_PATH = os.path.join(share_dir, "config", "calib.bin")
-DEFAULT_CONFIG_PATH = os.path.join(share_dir, "config", "config.yaml")
-DEFAULT_DISTORTION_CALIBRATION_DIR = os.path.join(
-    share_dir, "img", "calib", "Neue_3MP_Kamera"
+DEFAULT_CALIBRATION_PATH = str(Path(share_dir) / "config" / "calib.bin")
+DEFAULT_CONFIG_PATH = str(Path(share_dir) / "config" / "config.yaml")
+DEFAULT_DISTORTION_CALIBRATION_DIR = str(
+    Path(share_dir) / "img" / "calib" / "Neue_3MP_Kamera"
 )
-DEFAULT_EXTRINSIC_CHESSBOARD_FILE = os.path.join(
-    share_dir, "img", "position", "chessboard.png"
+DEFAULT_EXTRINSIC_CHESSBOARD_FILE = str(
+    Path(share_dir) / "img" / "position" / "chessboard.png"
 )
 DEBUG = False
 
@@ -34,21 +33,24 @@ class Calibration:
 
     def __init__(
         self,
-        calibration_path=DEFAULT_CALIBRATION_PATH,
-        config_path=DEFAULT_CONFIG_PATH,
-        distortion_calibration_dir=DEFAULT_DISTORTION_CALIBRATION_DIR,
-        extrinsic_chessboard_file=DEFAULT_EXTRINSIC_CHESSBOARD_FILE,
-        debug=DEBUG,
-    ):
-        """
-        Initialize the calibration class.
+        calibration_path: str = DEFAULT_CALIBRATION_PATH,
+        config_path: str = DEFAULT_CONFIG_PATH,
+        distortion_calibration_dir: str = DEFAULT_DISTORTION_CALIBRATION_DIR,
+        extrinsic_chessboard_file: str = DEFAULT_EXTRINSIC_CHESSBOARD_FILE,
+        debug: bool = DEBUG,
+    ) -> None:
+        """Initialize the calibration class.
 
-        Keyword Arguments:
-            calibration_path -- Path to the calibration files (default: {DEFAULT_CALIBRATION_PATH})
-            config_path -- Path to the configuration file (default: {DEFAULT_CONFIG_PATH})
-            distortion_calibration_dir -- Directory containing the images to calibrate the distortion (default: {DEFAULT_DISTORTION_CALIBRATION_DIR})
-            extrinsic_chessboard_file -- Chessboard image to calibrate extrinsic (default: {DEFAULT_EXTRINSIC_CHESSBOARD_FILE})
-            debug -- Debug mode toggle (default: {DEBUG})
+        Args:
+            calibration_path: Path to the calibration files
+                (default: {DEFAULT_CALIBRATION_PATH})
+            config_path: Path to the configuration file
+                (default: {DEFAULT_CONFIG_PATH})
+            distortion_calibration_dir: Directory containing the images to calibrate
+                the distortion (default: {DEFAULT_DISTORTION_CALIBRATION_DIR})
+            extrinsic_chessboard_file: Chessboard image to calibrate extrinsic
+                (default: {DEFAULT_EXTRINSIC_CHESSBOARD_FILE})
+            debug: Debug mode toggle (default: {DEBUG})
         """
         self.logger = get_logger("calibration_logger")
 
@@ -95,12 +97,12 @@ class Calibration:
             "birds_eye": None,
         }
 
-    def setup(self, force_recalibration: bool = False):
-        """
-        Setup the calibration.
+    def setup(self, *, force_recalibration: bool = False) -> None:
+        """Setup the calibration.
 
-        Keyword Arguments:
-            force_recalibration -- Should the camera be forced to recalibrate (default: {False})
+        Args:
+            force_recalibration: Should the camera be forced to recalibrate
+                (default: {False})
         """
         if not self.is_config_loaded:
             self.load_config(self._config_path)
@@ -146,65 +148,63 @@ class Calibration:
         elif not self.is_distortion_calibrated:
             self.logger.error("Failed to calibrate distortion parameters.")
 
-    def load_config(self, config_path: str):
-        """
-        Load configuration from file.
+    def load_config(self, config_path: str) -> None:
+        """Load configuration from file.
 
-        Arguments:
-            config_path -- Path to the configuration file.
+        Args:
+            config_path: Path to the configuration file.
 
         Raises:
             RuntimeError: If the configuration file could not be loaded.
         """
         try:
-            with open(config_path, "r") as file:
+            with Path(config_path).open() as file:
                 self.config = yaml.safe_load(file)
             self.is_config_loaded = True
         except Exception as e:
-            self.logger.error("Failed to load configuration file: %s" % str(e))
-            raise RuntimeError(str(e))
+            # rclpy loggers have no exception() method
+            self.logger.error(f"Failed to load configuration file: {e!s}")  # noqa: TRY400
+            raise RuntimeError(str(e)) from e
 
-    def save_config(self, config_path: str):
-        """
-        Save configuration to file.
+    def save_config(self, config_path: str) -> None:
+        """Save configuration to file.
 
-        Arguments:
-            config_path -- Path to save the configuration file.
+        Args:
+            config_path: Path to save the configuration file.
 
         Raises:
             RuntimeError: If the configuration file could not be saved.
         """
         try:
-            with open(config_path, "w") as file:
+            with Path(config_path).open("w") as file:
                 yaml.dump(self.config, file)
         except Exception as e:
-            raise RuntimeError(str(e))
+            raise RuntimeError(str(e)) from e
 
-    def load_calibration(self, path):
-        """
-        Load calibration data from file.
+    def load_calibration(self, path: str) -> None:
+        """Load calibration data from file.
 
-        Arguments:
-            path -- Path to the calibration file.
+        Args:
+            path: Path to the calibration file.
         """
         try:
-            if os.path.exists(path):
+            if Path(path).exists():
                 fs = cv2.FileStorage(path, cv2.FILE_STORAGE_READ)
 
                 # Load calibration data
                 for name, calib in self._calib_mapping.items():
-                    for key in calib.keys():
+                    for key in calib:
                         try:
                             calib[key] = fs.getNode(name + "-" + key).mat()
                         except Exception as e:
-                            self.logger.warn(
-                                "Failed to load calibration data, trying to load as scalar: %s"
-                                % str(e)
+                            self.logger.warning(
+                                "Failed to load calibration data, "
+                                f"trying to load as scalar: {e!s}"
                             )
                             calib[key] = fs.getNode(name + "-" + key).real()
 
                 # Load timestamps
-                for key in self._timestamps.keys():
+                for key in self._timestamps:
                     self._timestamps[key] = fs.getNode("timestamps-" + key).real()
 
                 fs.release()
@@ -225,19 +225,18 @@ class Calibration:
 
                 self.logger.info("Calibration data loaded.")
             else:
-                self.logger.warn("Calibration file not found: %s" % path)
+                self.logger.warning(f"Calibration file not found: {path}")
         except Exception as e:
-            self.logger.warn("Failed to load calibration data: %s" % str(e))
+            self.logger.warning(f"Failed to load calibration data: {e!s}")
 
-    def save_calibration(self, path):
-        """
-        Save calibration data to file.
+    def save_calibration(self, path: str) -> None:
+        """Save calibration data to file.
 
-        Arguments:
-            path -- Path to save the calibration file.
+        Args:
+            path: Path to save the calibration file.
         """
-        if os.path.exists(path):
-            os.remove(path)
+        if Path(path).exists():
+            Path(path).unlink()
         fs = cv2.FileStorage(path, cv2.FILE_STORAGE_WRITE)
 
         # Save calibration data
@@ -246,24 +245,25 @@ class Calibration:
                 try:
                     fs.write(name + "-" + key, value)
                 except Exception as e:
-                    self.logger.warn(f"Failed to save calibration data: {key}-{str(e)}")
+                    self.logger.warning(f"Failed to save calibration data: {key}-{e!s}")
 
         # Save timestamps
         for key, value in self._timestamps.items():
             try:
                 fs.write("timestamps-" + key, value)
             except Exception as e:
-                self.logger.warn(f"Failed to save timestamp: {key}-{str(e)}")
+                self.logger.warning(f"Failed to save timestamp: {key}-{e!s}")
 
         fs.release()
-        self.logger.info("Calibration data saved to: %s" % path)
+        self.logger.info(f"Calibration data saved to: {path}")
 
-    def find_chessboard(self, img: np.ndarray, resize=True) -> bool:
-        """
-        Find the chessboard corners in the image.
+    def find_chessboard(self, img: np.ndarray, *, resize: bool = True) -> bool:
+        """Find the chessboard corners in the image.
 
-        Arguments:
-            img -- Image.
+        Args:
+            img: Image.
+            resize: Should the image be resized to the configured output
+                dimensions (default: {True})
 
         Returns:
             bool -- True if the chessboard corners were found, False otherwise.
@@ -290,21 +290,21 @@ class Calibration:
     # Distortion calibration
     ###
 
-    def calibrate_distortion(self, resize=True):
-        """
-        Calibrate the distortion parameters.
+    def calibrate_distortion(self, *, resize: bool = True) -> None:
+        """Calibrate the distortion parameters.
 
-        Keyword Arguments:
-            resize -- Should the image be resized to the configured output dimensions (default: {True})
+        Args:
+            resize: Should the image be resized to the configured output
+                dimensions (default: {True})
         """
         if not self.is_config_loaded or self.internal_camera_matrix is None:
             self.logger.error("Configuration data not loaded.")
             return
 
-        if not os.path.exists(self._distortion_calibration_dir):
+        if not Path(self._distortion_calibration_dir).exists():
             self.logger.error(
-                "Calibration images directory not found: %s"
-                % self._distortion_calibration_dir
+                "Calibration images directory not found: "
+                f"{self._distortion_calibration_dir}"
             )
             return
 
@@ -322,16 +322,18 @@ class Calibration:
         image_points = []  # 2d points in image plane.
 
         filenames = []
-        for root, dirs, files in os.walk(self._distortion_calibration_dir):
-            for file in files:
-                if file.endswith((".png", ".jpg", ".jpeg")):
-                    filenames.append(os.path.join(root, file))
+        for root, _dirs, files in os.walk(self._distortion_calibration_dir):
+            filenames.extend(
+                str(Path(root) / file)
+                for file in files
+                if file.endswith((".png", ".jpg", ".jpeg"))
+            )
 
         for filename in filenames:
-            self.logger.info("Processing image: %s" % filename)
+            self.logger.info(f"Processing image: {filename}")
             img = cv2.imread(filename)
             if img is None:
-                self.logger.warn("Failed to read image: %s" % filename)
+                self.logger.warning(f"Failed to read image: {filename}")
                 continue
 
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -343,17 +345,17 @@ class Calibration:
                 image_points.append(corners)
                 object_points.append(obj)
             else:
-                self.logger.warn(
-                    "Chessboard corners not detected in image: %s" % filename
+                self.logger.warning(
+                    f"Chessboard corners not detected in image: {filename}"
                 )
 
         if len(image_points) > 0:
             object_points = np.array(object_points)
-            ret, new_camera_matrix, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(
+            ret, new_camera_matrix, dist_coeffs, _rvecs, _tvecs = cv2.calibrateCamera(
                 object_points, image_points, gray.shape[::-1], None, None
             )
 
-            self.logger.info("Distortion-Error: %f" % ret)
+            self.logger.info(f"Distortion-Error: {ret:f}")
 
             # Save calibration data
             time_stamp = Clock().now().seconds_nanoseconds()[0]
@@ -386,18 +388,21 @@ class Calibration:
         cv2.destroyAllWindows()
 
     def _display_final_undistortion(
-        self, filenames, new_camera_matrix, dist_coeffs, resize=True
-    ):
-        """
-        Display the final undistortion result.
+        self,
+        filenames: list[str],
+        new_camera_matrix: np.ndarray,
+        dist_coeffs: np.ndarray,
+        *,
+        resize: bool = True,
+    ) -> None:
+        """Display the final undistortion result.
 
-        Arguments:
-            filenames -- List of calibration images.
-            new_camera_matrix -- Camera matrix.
-            dist_coeffs -- Distortion coefficients.
-
-        Keyword Arguments:
-            resize -- Should the image be resized to the configured output dimensions (default: {True})
+        Args:
+            filenames: List of calibration images.
+            new_camera_matrix: Camera matrix.
+            dist_coeffs: Distortion coefficients.
+            resize: Should the image be resized to the configured output
+                dimensions (default: {True})
         """
         self.logger.info("Displaying calibration results.")
         img = cv2.imread(filenames[0])
@@ -416,7 +421,7 @@ class Calibration:
     ###
     # Birds eye view calibration
     ###
-    def calibrate_birds_eye(self, corners):
+    def calibrate_birds_eye(self, corners: np.ndarray) -> None:
         """Calibrate the bird's eye view transformation matrix."""
         if not self.is_config_loaded:
             self.logger.error("No configuration loaded.")
@@ -426,16 +431,16 @@ class Calibration:
             return
 
         # Load calibration image
-        if not os.path.exists(self._extrinsic_chessboard_file):
+        if not Path(self._extrinsic_chessboard_file).exists():
             self.logger.error(
-                "Calibration image not found: %s" % self._extrinsic_chessboard_file
+                f"Calibration image not found: {self._extrinsic_chessboard_file}"
             )
             return
 
         img = cv2.imread(self._extrinsic_chessboard_file)
         if img is None:
             self.logger.error(
-                "Failed to load calibration image: %s" % self._extrinsic_chessboard_file
+                f"Failed to load calibration image: {self._extrinsic_chessboard_file}"
             )
             return
 
@@ -505,14 +510,14 @@ class Calibration:
         # Move 0.5 * height everything down
         dst_points[:, 1] += 1 * height_dst
 
-        M = cv2.getPerspectiveTransform(src_points, dst_points)
-        M_inv = np.linalg.inv(M)
+        transform = cv2.getPerspectiveTransform(src_points, dst_points)
+        transform_inv = np.linalg.inv(transform)
 
         # Save calibration data
         time_stamp = Clock().now().seconds_nanoseconds()[0]
         self._calib_birds_eye = {
-            "iTb": M,
-            "bTi": M_inv,
+            "iTb": transform,
+            "bTi": transform_inv,
             "src_points": src_points,
             "dst_points": dst_points,
             "target_size": np.array(target_size).reshape(
@@ -530,25 +535,32 @@ class Calibration:
         else:
             self.logger.error("Failed to calibrate bird's eye view parameters.")
 
-    def display_corners(self, img, corners, board_size, resize=True):
-        """
-        Display the chessboard corners.
+    def display_corners(
+        self,
+        img: np.ndarray,
+        corners: np.ndarray,
+        board_size: tuple[int, int],
+        *,
+        resize: bool = True,
+    ) -> None:
+        """Display the chessboard corners.
 
-        Arguments:
-            img -- Image.
-            corners -- Corners.
-            board_size -- Board size. (rows, cols)
-
-        Keyword Arguments:
-            resize -- Should the image be resized to the configured output dimensions (default: {True})
+        Args:
+            img: Image.
+            corners: Corners.
+            board_size: Board size. (rows, cols)
+            resize: Should the image be resized to the configured output
+                dimensions (default: {True})
         """
         img = self.downscale_image(img) if resize else img
-        img = cv2.drawChessboardCorners(img, board_size, corners, True)
+        img = cv2.drawChessboardCorners(img, board_size, corners, True)  # noqa: FBT003
         cv2.imshow("Corners", img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    def _prerpocess_extrinsic_img(self, img, resize=True):
+    def _prerpocess_extrinsic_img(
+        self, img: np.ndarray | None, *, resize: bool = True
+    ) -> np.ndarray | None:
         if img is None:
             self.logger.error("Image is None.")
             return None
@@ -582,15 +594,14 @@ class Calibration:
 
         return img
 
-    def _display_result_brids_eye(self, img, points=None):
-        """
-        Display the bird's eye view calibration result.
+    def _display_result_brids_eye(
+        self, img: np.ndarray, points: np.ndarray | None = None
+    ) -> None:
+        """Display the bird's eye view calibration result.
 
-        Arguments:
-            img -- Image.
-
-        Keyword Arguments:
-            points -- Points to project (default: {None})
+        Args:
+            img: Image.
+            points: Points to project (default: {None})
         """
         img = self.downscale_image(img)
         bird = cv2.warpPerspective(
@@ -615,13 +626,14 @@ class Calibration:
         plt.axis("off")
         plt.show()
 
-    def calc_reprojection_error_birds_eye(self, image_points, birds_eye_points):
-        """
-        Calculate the reprojection error for the bird's eye view calibration.
+    def calc_reprojection_error_birds_eye(
+        self, image_points: np.ndarray, birds_eye_points: np.ndarray
+    ) -> float:
+        """Calculate the reprojection error for the bird's eye view calibration.
 
-        Arguments:
-            image_points -- Points in the image (px).
-            birds_eye_points -- Points in the bird's eye view (px).
+        Args:
+            image_points: Points in the image (px).
+            birds_eye_points: Points in the bird's eye view (px).
 
         Returns:
             float -- Reprojection error.
@@ -652,9 +664,8 @@ class Calibration:
     # Extrinsic calibration
     ###
 
-    def calibrate_extrinsic(self, corners):
-        """
-        Calibrate the extrinsic parameters.
+    def calibrate_extrinsic(self, corners: np.ndarray) -> None:
+        """Calibrate the extrinsic parameters.
 
         Raises:
             RuntimeError: If the extrinsic calibration fails.
@@ -665,9 +676,9 @@ class Calibration:
         if not self.is_distortion_calibrated:
             self.logger.error("No distortion calibration data found.")
             return
-        if not os.path.exists(self._extrinsic_chessboard_file):
+        if not Path(self._extrinsic_chessboard_file).exists():
             self.logger.error(
-                "Calibration image not found: %s" % self._extrinsic_chessboard_file
+                f"Calibration image not found: {self._extrinsic_chessboard_file}"
             )
             return
 
@@ -689,7 +700,6 @@ class Calibration:
         self._calib_extrinsic = {
             "wTc": extrinsic_matrix,
             "cTw": np.linalg.inv(extrinsic_matrix),
-            # "target_size": np.array(img.shape)[::-1],
             "target_size": np.array(target_size).reshape(
                 2,
             ),
@@ -701,29 +711,29 @@ class Calibration:
         err_img_to_world, err_world_to_img = self.calc_reprojection_error_extrinsic(
             np.array(corners).reshape(-1, 2), self.extrinsic_world_points
         )
-        self.logger.info("Reprojection error (img -> world): %f" % err_img_to_world)
-        self.logger.info("Reprojection error (world -> img): %f" % err_world_to_img)
+        self.logger.info(f"Reprojection error (img -> world): {err_img_to_world:f}")
+        self.logger.info(f"Reprojection error (world -> img): {err_world_to_img:f}")
 
         try:
             if self.debug:
                 self._display_result_extrinsic(img, corners)
         except Exception as e:
             plt.close()
-            self.logger.error("Failed to display the calibration result: %s" % str(e))
+            # rclpy loggers have no exception() method
+            self.logger.error(f"Failed to display the calibration result: {e!s}")  # noqa: TRY400
             return
         # Get the reprojection error
         self.logger.info("Extrinsic calibration completed.")
 
-    def _display_result_extrinsic(self, img, corners):
-        """
-        Display the extrinsic calibration result.
+    def _display_result_extrinsic(self, img: np.ndarray, corners: np.ndarray) -> None:
+        """Display the extrinsic calibration result.
 
-        Arguments:
-            img -- Image.
-            corners -- Corners.
+        Args:
+            img: Image.
+            corners: Corners.
         """
         # Define the Roll, Pitch, and Heading (Yaw) angles
-        R = self._calib_extrinsic["wTc"][:3, :3]
+        rotation_matrix = self._calib_extrinsic["wTc"][:3, :3]
         c_translation = self._calib_extrinsic["wTc"][:-1, -1]
 
         # Original coordinate system
@@ -757,7 +767,7 @@ class Calibration:
             corners_camera, self._calib_extrinsic["cTw"], Z_w=0.0
         )
 
-        # Draw the original corners in green and the transformed corners in red in the image
+        # Draw the original corners in green and the transformed corners in red
         ax.imshow(img, cmap="gray")
         ax.scatter(
             corners[:, 0, 0], corners[:, 0, 1], color="g", label="Original Corners", s=4
@@ -781,13 +791,25 @@ class Calibration:
 
         # Plot rotated coordinate system
         ax.quiver(
-            *c_translation, *(R.T[:, 0]), color="r", label="X rotated", linestyle="--"
+            *c_translation,
+            *(rotation_matrix.T[:, 0]),
+            color="r",
+            label="X rotated",
+            linestyle="--",
         )
         ax.quiver(
-            *c_translation, *(R.T[:, 1]), color="g", label="Y rotated", linestyle="--"
+            *c_translation,
+            *(rotation_matrix.T[:, 1]),
+            color="g",
+            label="Y rotated",
+            linestyle="--",
         )
         ax.quiver(
-            *c_translation, *(R.T[:, 2]), color="b", label="Z rotated", linestyle="--"
+            *c_translation,
+            *(rotation_matrix.T[:, 2]),
+            color="b",
+            label="Z rotated",
+            linestyle="--",
         )
 
         # Draw the world points
@@ -820,12 +842,13 @@ class Calibration:
         plt.title("Original and Rotated Coordinate Systems")
         plt.show()
 
-    def _calc_extrinsic_matrix(self, image_points):
-        """
-        Calculate the extrinsic matrix.
+    def _calc_extrinsic_matrix(
+        self, image_points: np.ndarray
+    ) -> tuple[bool, np.ndarray | None]:
+        """Calculate the extrinsic matrix.
 
-        Arguments:
-            image_points -- Image points.
+        Args:
+            image_points: Image points.
 
         Returns:
             Tuple[bool, np.array] -- Success flag and the extrinsic matrix.
@@ -844,7 +867,6 @@ class Calibration:
         rotation_matrix, _ = cv2.Rodrigues(
             np.asarray(rotation_vector[:, :], np.float64)
         )
-        # camera_position = -np.matrix(rotation_matrix).T @ np.matrix(translation_vector)
         camera_position = translation_vector
 
         # Transform the rotation matrix to match the desired coordinate system
@@ -856,30 +878,31 @@ class Calibration:
 
         return True, extrinsic_matrix
 
-    def _transform_rotation_matrix(self, rotation_matrix):
-        """
-        Transform the rotation matrix to match the desired coordinate system.
+    def _transform_rotation_matrix(self, rotation_matrix: np.ndarray) -> np.ndarray:
+        """Transform the rotation matrix to match the desired coordinate system.
 
-        Arguments:
-            rotation_matrix -- Rotation matrix.
+        Args:
+            rotation_matrix: Rotation matrix.
 
         Returns:
             np.array -- Transformed rotation matrix.
         """
-        # Define the transformation matrix to convert OpenCV's coordinate system to your coordinate system
-        T = np.matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        # Define the transformation matrix to convert OpenCV's coordinate system to
+        # your coordinate system
+        axis_transform = np.matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
         # Transform the rotation matrix
-        transformed_rotation_matrix = rotation_matrix @ T
+        transformed_rotation_matrix = rotation_matrix @ axis_transform
         return transformed_rotation_matrix
 
-    def calc_reprojection_error_extrinsic(self, image_points, world_points):
-        """
-        Calculate the reprojection error for the extrinsic calibration.
+    def calc_reprojection_error_extrinsic(
+        self, image_points: np.ndarray, world_points: np.ndarray
+    ) -> tuple[float, float]:
+        """Calculate the reprojection error for the extrinsic calibration.
 
-        Arguments:
-            image_points -- Image points. (px)
-            world_points -- World points. (m)
+        Args:
+            image_points: Image points. (px)
+            world_points: World points. (m)
 
         Returns:
             Tuple[float, float] -- Reprojection error (img -> world) and (world -> img)
@@ -923,9 +946,8 @@ class Calibration:
     ##############################
 
     @property
-    def target_size(self):
-        """
-        Get the target size.
+    def target_size(self) -> list[int]:
+        """Get the target size.
 
         Returns:
             list -- Target size.
@@ -933,9 +955,8 @@ class Calibration:
         return self.config.get("target_size", [0, 0])
 
     @property
-    def all_calibrated(self):
-        """
-        Check if all calibration parameters are set.
+    def all_calibrated(self) -> bool:
+        """Check if all calibration parameters are set.
 
         Returns:
             bool -- True if all calibration parameters are set, False otherwise.
@@ -956,21 +977,17 @@ class Calibration:
                 ).all()
             ):
                 return True
-            else:
-                self.logger.error(
-                    "Calibration target sizes do not match: %s (distortion) vs %s (extrinsic) vs %s (birds eye)"
-                    % (
-                        str(self._calib_distortion["target_size"]),
-                        str(self._calib_extrinsic["target_size"]),
-                        str(self._calib_birds_eye["target_size"]),
-                    )
-                )
+            self.logger.error(
+                "Calibration target sizes do not match: "
+                f"{self._calib_distortion['target_size']!s} (distortion) vs "
+                f"{self._calib_extrinsic['target_size']!s} (extrinsic) vs "
+                f"{self._calib_birds_eye['target_size']!s} (birds eye)"
+            )
         return False
 
     @property
-    def internal_camera_matrix(self):
-        """
-        Get the internal camera matrix.
+    def internal_camera_matrix(self) -> np.ndarray | None:
+        """Get the internal camera matrix.
 
         Returns:
             np.array -- Internal camera matrix.
@@ -997,19 +1014,18 @@ class Calibration:
         principal_point = (image_size[0] / 2.0, image_size[1] / 2.0)
 
         # Create the camera matrix
-        K = np.array(
+        camera_matrix = np.array(
             [
                 [focal_length_mm[0] * scaling_factor[0], 0, principal_point[0]],
                 [0, focal_length_mm[1] * scaling_factor[1], principal_point[1]],
                 [0, 0, 1],
             ]
         )
-        return K
+        return camera_matrix
 
     @property
-    def _calib_mapping(self):
-        """
-        Get the calibration mapping.
+    def _calib_mapping(self) -> dict[str, dict]:
+        """Get the calibration mapping.
 
         Returns:
             dict -- Calibration mapping.
@@ -1021,9 +1037,8 @@ class Calibration:
         }
 
     @property
-    def extrinsic_board_size(self):
-        """
-        Get the extrinsic board size.
+    def extrinsic_board_size(self) -> tuple[int, int] | None:
+        """Get the extrinsic board size.
 
         Returns:
             Tuple[int, int] -- Board size.
@@ -1036,9 +1051,8 @@ class Calibration:
         )
 
     @property
-    def extrinsic_world_points(self):
-        """
-        Get the extrinsic world points.
+    def extrinsic_world_points(self) -> list | None:
+        """Get the extrinsic world points.
 
         Returns:
             np.array -- World points.
@@ -1048,9 +1062,8 @@ class Calibration:
         return self.config["position_board"]["world_points"]
 
     @property
-    def rpy_rad(self):
-        """
-        Get the roll, pitch, yaw angles in radians.
+    def rpy_rad(self) -> np.ndarray | None:
+        """Get the roll, pitch, yaw angles in radians.
 
         Returns:
             Tuple[float, float, float] -- Roll, pitch, yaw angles in radians.
@@ -1058,16 +1071,15 @@ class Calibration:
         if not self.is_extrinsic_calibrated:
             return None
         extrinsic_matrix = self._calib_extrinsic["wTc"]
-        R = extrinsic_matrix[:3, :3]
+        rotation_matrix = extrinsic_matrix[:3, :3]
 
-        rotation = Rotation.from_matrix(R)
+        rotation = Rotation.from_matrix(rotation_matrix)
         rpy = rotation.as_euler("xyz", degrees=False)
         return rpy
 
     @property
-    def camera_position(self):
-        """
-        Get the camera position.
+    def camera_position(self) -> np.ndarray | None:
+        """Get the camera position.
 
         Returns:
             np.array -- Camera position.
@@ -1082,27 +1094,26 @@ class Calibration:
     ##############################
 
     def _scale_matrix_points(
-        self, matrix: np.ndarray, scale: Tuple[float, float], c_type: str
-    ):
-        """
-        Scale the matrix points.
+        self, matrix: np.ndarray, scale: tuple[float, float], c_type: str
+    ) -> np.ndarray:
+        """Scale the matrix points.
 
-        Arguments:
-            matrix -- Matrix to scale.
-            scale -- Scaling factor.
-            c_type -- Type of matrix. (camera, transform, points)
+        Args:
+            matrix: Matrix to scale.
+            scale: Scaling factor.
+            c_type: Type of matrix. (camera, transform, points)
 
         Returns:
             np.array -- Scaled matrix.
         """
         if c_type == "camera":
-            assert matrix.shape == (3, 3), "Invalid matrix shape."
+            assert matrix.shape == (3, 3), "Invalid matrix shape."  # noqa: S101
             matrix[0, 0] *= scale[0]
             matrix[1, 1] *= scale[1]
             matrix[0, 2] *= scale[0]
             matrix[1, 2] *= scale[1]
         elif c_type == "transform":
-            assert matrix.shape == (3, 3), "Invalid matrix shape."
+            assert matrix.shape == (3, 3), "Invalid matrix shape."  # noqa: S101
             transform = np.eye(3)
             transform[0, 0] = scale[0]
             transform[1, 1] = scale[1]
@@ -1110,19 +1121,20 @@ class Calibration:
         elif c_type == "points":
             original_shape = matrix.shape
             matrix = matrix.reshape(-1, 2)
-            assert matrix.shape[1] == 2, "Invalid point shape."
+            assert matrix.shape[1] == 2, "Invalid point shape."  # noqa: S101, PLR2004
             matrix[:, 0] *= scale[0]
             matrix[:, 1] *= scale[1]
             matrix = matrix.reshape(original_shape)
         return matrix
 
-    def _compute_scaling_factor(self, image_size, target_size):
-        """
-        Compute the scaling factor.
+    def _compute_scaling_factor(
+        self, image_size: list[int], target_size: list[int]
+    ) -> tuple[float, float]:
+        """Compute the scaling factor.
 
-        Arguments:
-            image_size -- Image dimensions.
-            target_size -- Target dimensions.
+        Args:
+            image_size: Image dimensions.
+            target_size: Target dimensions.
 
         Returns:
             Tuple[float, float] -- Scaling factor.
@@ -1133,12 +1145,11 @@ class Calibration:
         scale_y = target_y / img_y
         return scale_x, scale_y
 
-    def downscale_image(self, img):
-        """
-        Downscale the image to the target size.
+    def downscale_image(self, img: np.ndarray) -> np.ndarray:
+        """Downscale the image to the target size.
 
-        Arguments:
-            img -- Image.
+        Args:
+            img: Image.
 
         Returns:
             np.array -- Downscaled image
@@ -1155,18 +1166,21 @@ class Calibration:
         return img
 
     def _get_checkerboard_corners(
-        self, img, board_size, show_failure=False, resize=True
-    ):
-        """
-        Get the checkerboard corners.
+        self,
+        img: np.ndarray,
+        board_size: tuple[int, int],
+        *,
+        show_failure: bool = False,
+        resize: bool = True,
+    ) -> tuple[bool, np.ndarray | None]:
+        """Get the checkerboard corners.
 
-        Arguments:
-            img -- Image.
-            board_size -- Board size.
-
-        Keyword Arguments:
-            show_failure -- Show failure img (default: {False})
-            resize -- Should the image be resized to the configured output dimensions (default: {True})
+        Args:
+            img: Image.
+            board_size: Board size.
+            show_failure: Show failure img (default: {False})
+            resize: Should the image be resized to the configured output
+                dimensions (default: {True})
 
         Returns:
             Tuple[bool, np.array] -- Success flag and the corners.
@@ -1184,39 +1198,35 @@ class Calibration:
                 self.display_corners(img, corners2, board_size, resize=resize)
 
             return ret, corners2
-        elif show_failure:
+        if show_failure:
             self.logger.error("Failed to find chessboard corners.")
             plt.imshow(img, cmap="gray")
             plt.title("Failed to find chessboard corners")
             plt.show()
         return ret, None
 
-    def _set_calibration_flag(self, calib):
-        """
-        Set the calibration flag.
+    def _set_calibration_flag(self, calib: dict) -> bool:
+        """Set the calibration flag.
 
-        Arguments:
-            calib -- Calibration data.
+        Args:
+            calib: Calibration data.
 
         Returns:
             bool -- True if the calibration data is valid, False otherwise.
         """
-        for key, value in calib.items():
-            if value is None:
+        for value in calib.values():
+            if value is None or (isinstance(value, int) and value == 0):
                 return False
-            elif isinstance(value, int) and value == 0:
-                return False
-            elif isinstance(value, float) and value == 0.0:
-                return False
-            elif isinstance(value, list) and len(value) == 0:
-                return False
-            elif isinstance(value, dict) and len(value) == 0:
+            if (
+                (isinstance(value, float) and value == 0.0)
+                or (isinstance(value, list) and len(value) == 0)
+                or (isinstance(value, dict) and len(value) == 0)
+            ):
                 return False
         return True
 
     def __str__(self) -> str:
-        """
-        Get the calibration data as a string.
+        """Get the calibration data as a string.
 
         Returns:
             str -- Calibration data as a string.

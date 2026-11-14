@@ -36,26 +36,22 @@ class CameraPreprocessing(Node):
         self.get_logger().info(f"Package Path: {package_share_path}")
 
         debug = self.declare_parameter("debug", value=False).value
-        # Paths relative to the package share directory (absolute paths stay)
-        share = Path(package_share_path)
         calibration_file = str(
-            share / self.declare_parameter("calibration_file", "config/calib.bin").value
+            Path(package_share_path)
+            / self.declare_parameter("calibration_file", "config/calib.bin").value
         )
         config_file = str(
-            share / self.declare_parameter("config_file", "config/config.yaml").value
+            Path(package_share_path)
+            / self.declare_parameter("config_file", "config/config.yaml").value
         )
-        # os.path.join kept the trailing "/" of the directory, Path drops it
-        calibration_images_path = (
-            str(
-                share
-                / self.declare_parameter(
-                    "calibration_images_path", "img/calib/Neue_3MP_Kamera/"
-                ).value
-            )
-            + "/"
+        calibration_images_path = str(
+            Path(package_share_path)
+            / self.declare_parameter(
+                "calibration_images_path", "img/calib/Neue_3MP_Kamera/"
+            ).value
         )
         position_calib_img_path = str(
-            share
+            Path(package_share_path)
             / self.declare_parameter(
                 "position_calib_img_path", "img/position/chessboard.png"
             ).value
@@ -148,7 +144,7 @@ class CameraPreprocessing(Node):
 
         Args:
             image: Image to adjust the brightness of.
-            target_brightness: Target brightness value [0, 255].
+            target_brightness: Target brightness value [0,255] (default: {127})
 
         Returns:
             Image with adjusted brightness.
@@ -236,7 +232,7 @@ def main(args: list[str] | None = None) -> None:
     """Main function to start the CameraPreprocessing node.
 
     Args:
-        args: Launch arguments.
+        args: Launch Arguments (default: {None})
     """
     rclpy.init(args=args)
     camera_preprocessing = CameraPreprocessing()
