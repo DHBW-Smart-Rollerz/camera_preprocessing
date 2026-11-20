@@ -130,7 +130,7 @@ class CameraPreprocessing(Node):
             cv_img = self.calibration.downscale_image(cv_img)
 
         with Timer(name="Thresh", filter_strength=40):
-            cv_img = self.adjust_brightness(cv_img, 50)
+            cv_img = self.adjust_brightness(cv_img, 40)
 
         with Timer(name="undistortion", filter_strength=40):
             img_undistorted = self.distorter.undistort_image(cv_img)
